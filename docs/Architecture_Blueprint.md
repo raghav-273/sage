@@ -247,7 +247,7 @@ sage/                                   # Repository root
 ├── requirements.txt                    # Pinned Python dependencies
 ├── manage.py                           # Django management entry point
 │
-├── sage/                               # Django project configuration package
+├── config/                               # Django project configuration package
 │   ├── __init__.py
 │   ├── settings/
 │   │   ├── __init__.py
