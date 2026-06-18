@@ -1,0 +1,31 @@
+# Version control
+.git
+.gitignore
+
+# Secrets — must never be baked into the image
+.env
+
+# Generated files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Media uploads — large, not part of the application
+media/
+
+# macOS artefacts
+.DS_Store
+
+# Editor directories
+.idea/
+.vscode/
+
+# Virtual environments
+.venv/
+venv/
+env/

@@ -1,0 +1,131 @@
+# docker-compose.yml
+#
+# SAGE development stack.
+# Requires: .env file at project root (copy from .env.example).
+#
+# Usage:
+#   docker compose up --build       # start all services
+#   docker compose down             # stop all services (data persists)
+#   docker compose down -v          # stop all services AND delete database volume
+
+services:
+
+  # ── PostgreSQL 16 + pgvector ──────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    # Native ARM64 image: no Rosetta emulation on Apple Silicon.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Named volume: data persists across container restarts and `docker compose down`.
+      # Delete with: docker compose down -v
+      - postgres_data:/var/lib/postgresql/data
+      # init.sql is executed once on first startup (when data directory is empty).
+      # Re-running `docker compose up` after data exists does NOT re-execute this file.
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      # Exposed to host so you can connect with psql or a DB GUI directly.
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      # pg_isready checks that PostgreSQL is accepting connections.
+      # ${POSTGRES_USER} and ${POSTGRES_DB} are substituted by docker compose
+      # from the .env file at parse time.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Redis 7 ───────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    # Native ARM64 image.
+    # No persistent volume: the Celery task queue is ephemeral in development.
+    # A failed task queue does not lose data that cannot be recovered by re-uploading.
+    ports:
+      # Exposed to host for direct inspection with redis-cli.
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  # ── Django application ─────────────────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      # Bind mount: all source code changes on the host are immediately reflected
+      # in the container. Django's runserver detects file changes and auto-reloads.
+      - .:/app
+      # media/ bind mount: uploaded PDFs and extracted images are accessible
+      # on the host at ./media/ for direct inspection during development.
+      - ./media:/app/media
+    ports:
+      - "8000:8000"
+    env_file:
+      # Loads all variables from .env into the container environment.
+      - .env
+    environment:
+      # Explicitly set the Django settings module.
+      # Overrides any value in .env to prevent accidental production settings use.
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Celery worker — Week 2 ─────────────────────────────────────────────────
+  # Same Dockerfile as web. Same volumes. Different command.
+  # Uncomment when apps/ingestion/tasks.py is implemented.
+  #
+  # celery_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   command: celery -A sage worker --loglevel=info --concurrency=2
+  #   volumes:
+  #     - .:/app
+  #     - ./media:/app/media
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DJANGO_SETTINGS_MODULE: config.settings
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   restart: on-failure
+
+  # ── Celery Flower — Week 2 ─────────────────────────────────────────────────
+  # Task monitoring UI. Uncomment alongside celery_worker.
+  #
+  # flower:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   command: celery -A sage flower --port=5555
+  #   ports:
+  #     - "5555:5555"
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     DJANGO_SETTINGS_MODULE: config.settings
+  #   depends_on:
+  #     - celery_worker
+
+volumes:
+  postgres_data:
+    driver: local
+    # To inspect the raw data directory: docker volume inspect sage_postgres_data
