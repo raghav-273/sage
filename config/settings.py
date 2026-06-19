@@ -253,11 +253,11 @@ USE_TZ = True
 #
 # text-embedding-3-small (OpenAI): 1536 dimensions
 # text-embedding-004 (Gemini):      768 dimensions
-#
+# using BAAI/bge-small-en-v1.5 (sentence-transformers): 384 dimensions
 # Embedding generation is implemented in Week 2. This constant is defined now
 # so the ContentChunk migration can reference it without hardcoding.
 
-PGVECTOR_EMBEDDING_DIMENSIONS = 1536
+PGVECTOR_EMBEDDING_DIMENSIONS = 384  # BAAI/bge-small-en-v1.5 (sentence-transformers): 384 dimensions
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────

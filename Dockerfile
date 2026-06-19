@@ -24,8 +24,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     # Keeps the image smaller by not caching pip downloads
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    TIKTOKEN_CACHE_DIR=/app/.tiktoken_cache
+    TIKTOKEN_CACHE_DIR=/app/.tiktoken_cache \
     # Pinned cache directory so the pre-downloaded tokenizer survives COPY
+    HF_HOME=/app/.hf_cache
 
 # ── System dependencies ──────────────────────────────────────────────────────
 # libglib2.0-0  — required by opencv-python-headless (GLib runtime)
@@ -60,7 +61,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 #
 # Requires internet access at build time.
 # The downloaded files are stored at TIKTOKEN_CACHE_DIR (/app/.tiktoken_cache).
-
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
 # RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
 # ── Application code ─────────────────────────────────────────────────────────
