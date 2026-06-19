@@ -3,10 +3,8 @@
 PostgreSQL full-text search using Django's SearchVector/SearchQuery/SearchRank.
 
 The tsvector is computed on the fly via SearchVector('chunk_text') rather
-than read from a stored, indexed column — no GIN index exists yet. This is
-correct at MVP collection sizes; a stored tsvector column with a GIN index
-is a purely additive future migration if full-text query latency becomes
-a bottleneck.
+than read from a stored, indexed column — no migration is required for
+this. Dataset size is small enough that this is fast without an index.
 
 Retrieval is restricted to chunks belonging to Document rows with
 status=READY, mirroring vector_search.
@@ -18,7 +16,12 @@ import logging
 import uuid
 from dataclasses import dataclass
 
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.contrib.postgres.search import (
+    SearchQuery,
+    SearchRank,
+    SearchVector,
+)
+from django.db.models import F
 
 logger = logging.getLogger("services.retrieval.keyword_search")
 
@@ -48,16 +51,6 @@ def keyword_search(
     """
     Run PostgreSQL full-text search against ContentChunk.chunk_text.
 
-    Args:
-        query_text: the raw natural-language question.
-        top_k: maximum number of results to return.
-        document_ids: optional filter restricting search to specific
-            documents. If None, searches across all READY documents.
-
-    Returns:
-        Results ordered by descending ts_rank. Chunks with no matching
-        terms are excluded (search_rank__gt=0).
-
     Raises:
         KeywordSearchError: if query_text is empty or the query fails.
     """
@@ -77,11 +70,18 @@ def keyword_search(
         queryset = (
             queryset.select_related("page")
             .annotate(
-                search_rank=SearchRank(
-                    SearchVector("chunk_text", config="english"), search_query
+                search_vector=SearchVector(
+                    "chunk_text",
+                    config="english",
                 )
             )
-            .filter(search_rank__gt=0)
+            .filter(search_vector=search_query)
+            .annotate(
+                search_rank=SearchRank(
+                    F("search_vector"),
+                    search_query,
+                )
+            )
             .order_by("-search_rank")[:top_k]
         )
         chunks = list(queryset)

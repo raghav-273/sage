@@ -2,14 +2,11 @@
 """
 Reciprocal Rank Fusion (RRF) for combining multiple ranked result lists.
 
-Standard formula: for each ranked list a chunk appears in, contribute
-1 / (k + rank), where rank is 1-indexed. A chunk's fused score is the sum
-of its contributions across every list it appears in. Deduplication is
-inherent to the algorithm — each chunk_id accumulates into a single
-running total in a dict, regardless of how many input lists contain it.
-
-k=60 is the standard RRF constant (Cormack et al., 2009): large enough
-that no single list's top-ranked result dominates the fused ranking.
+Formula: for each ranked list a chunk appears in, contribute 1/(k+rank),
+where rank is 1-indexed. A chunk's fused score is the sum of its
+contributions across every list it appears in — this is both the
+deduplication mechanism (one dict entry per chunk_id) and what guarantees
+the combined score reflects every appearance rather than just one.
 """
 
 from __future__ import annotations
@@ -32,8 +29,7 @@ def reciprocal_rank_fusion(
         k: the RRF constant.
 
     Returns:
-        (chunk_id, fused_score) tuples, deduplicated, sorted by
-        fused_score descending (best first).
+        (chunk_id, fused_score) tuples, deduplicated, sorted descending.
 
     Raises:
         ValueError: if k is not positive.
@@ -45,7 +41,7 @@ def reciprocal_rank_fusion(
 
     for ranked_list in ranked_lists:
         for position, chunk_id in enumerate(ranked_list):
-            rank = position + 1  # 1-indexed
+            rank = position + 1
             fused_scores[chunk_id] = fused_scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
 
     return sorted(fused_scores.items(), key=lambda item: item[1], reverse=True)

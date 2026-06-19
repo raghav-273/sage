@@ -2,11 +2,16 @@
 """
 Hybrid retrieval orchestration: vector search + keyword search, fused via RRF.
 
-Vector and keyword search execute concurrently (each is an independent
-PostgreSQL query) via a thread pool. Django manages a separate DB
-connection per thread automatically, so this is safe for the lifetime of
-a single call. No knowledge graph expansion exists yet — this milestone
-returns exactly the RRF top-k chunks with no further expansion.
+Vector and keyword search execute concurrently via a thread pool — Django
+manages a separate DB connection per thread automatically. No knowledge
+graph expansion exists yet; this milestone returns exactly the RRF top-k
+chunks with no further expansion.
+
+embedding_client is optional and defaults to a lazily-constructed
+SentenceTransformerEmbeddingClient (the project's only embedding provider).
+Making it an explicit, injectable parameter — rather than hardcoding the
+concrete class — is what keeps this module unit-testable without loading
+an actual ML model: tests pass a stub EmbeddingClient instead.
 """
 
 from __future__ import annotations
@@ -24,7 +29,7 @@ from services.retrieval.vector_search import VectorSearchResult, vector_search
 logger = logging.getLogger("services.retrieval.retrieval_service")
 
 DEFAULT_TOP_K_PER_METHOD = 10
-DEFAULT_FINAL_TOP_K = 5
+DEFAULT_TOP_K = 5
 
 
 class RetrievalError(Exception):
@@ -37,39 +42,61 @@ class RetrievedChunk:
 
     chunk_id: uuid.UUID
     document_id: uuid.UUID
+    chunk_text: str
     page_number: int
     section_identifier: str | None
-    chunk_text: str
     retrieval_method: str  # "vector", "keyword", or "hybrid" (found by both)
     retrieval_score: float  # the RRF fused score
     rank: int  # 1-indexed final rank
 
 
+def _default_embedding_client() -> EmbeddingClient:
+    """
+    Lazily constructs the project's default embedding client.
+
+    Deferred import: avoids loading sentence-transformers (and reading the
+    model from disk) unless retrieve() is actually called without an
+    explicit embedding_client — e.g. never, in unit tests that inject a stub.
+    """
+    from services.llm_client.sentence_transformer_client import (
+        SentenceTransformerEmbeddingClient,
+    )
+
+    return SentenceTransformerEmbeddingClient()
+
+
 def retrieve(
-    query_text: str,
-    embedding_client: EmbeddingClient,
+    query: str,
     document_ids: list[uuid.UUID] | None = None,
+    top_k: int = DEFAULT_TOP_K,
+    embedding_client: EmbeddingClient | None = None,
     top_k_per_method: int = DEFAULT_TOP_K_PER_METHOD,
-    final_top_k: int = DEFAULT_FINAL_TOP_K,
     rrf_k: int = DEFAULT_RRF_K,
 ) -> list[RetrievedChunk]:
     """
     Run hybrid retrieval for a natural-language question.
 
-    Steps:
-        1. Embed query_text via embedding_client.
-        2. Run vector_search and keyword_search concurrently.
-        3. Fuse both ranked lists via Reciprocal Rank Fusion.
-        4. Return the top final_top_k fused results with full metadata.
+    Args:
+        query: the natural-language question.
+        document_ids: optional filter restricting retrieval to specific
+            documents. If None, searches across all READY documents.
+        top_k: how many fused results to return.
+        embedding_client: an EmbeddingClient instance. If None, a
+            SentenceTransformerEmbeddingClient is constructed lazily.
+        top_k_per_method: how many candidates each individual method
+            retrieves before fusion.
+        rrf_k: the RRF constant.
 
     Raises:
-        RetrievalError: if query_text is empty, or embedding/search/fusion fails.
+        RetrievalError: if query is empty, or embedding/search/fusion fails.
     """
-    if not query_text or not query_text.strip():
-        raise RetrievalError("query_text must not be empty")
+    if not query or not query.strip():
+        raise RetrievalError("query must not be empty")
+
+    client = embedding_client or _default_embedding_client()
 
     try:
-        query_embedding = embedding_client.embed([query_text])[0]
+        query_embedding = client.embed([query])[0]
     except Exception as exc:
         raise RetrievalError(f"Failed to embed query: {exc}") from exc
 
@@ -79,7 +106,7 @@ def retrieve(
                 vector_search, query_embedding, top_k_per_method, document_ids
             )
             keyword_future = executor.submit(
-                keyword_search, query_text, top_k_per_method, document_ids
+                keyword_search, query, top_k_per_method, document_ids
             )
             vector_results = vector_future.result()
             keyword_results = keyword_future.result()
@@ -98,7 +125,7 @@ def retrieve(
         raise RetrievalError(f"RRF fusion failed: {exc}") from exc
 
     retrieved_chunks: list[RetrievedChunk] = []
-    for rank, (chunk_id, fused_score) in enumerate(fused[:final_top_k], start=1):
+    for rank, (chunk_id, fused_score) in enumerate(fused[:top_k], start=1):
         in_vector = chunk_id in vector_metadata
         in_keyword = chunk_id in keyword_metadata
 
@@ -116,9 +143,9 @@ def retrieve(
             RetrievedChunk(
                 chunk_id=source.chunk_id,
                 document_id=source.document_id,
+                chunk_text=source.chunk_text,
                 page_number=source.page_number,
                 section_identifier=source.section_identifier,
-                chunk_text=source.chunk_text,
                 retrieval_method=method,
                 retrieval_score=fused_score,
                 rank=rank,
@@ -127,7 +154,7 @@ def retrieve(
 
     logger.info(
         "retrieval_completed query=%r document_ids=%s vector_count=%d keyword_count=%d final_count=%d",
-        query_text, document_ids, len(vector_results), len(keyword_results), len(retrieved_chunks),
+        query, document_ids, len(vector_results), len(keyword_results), len(retrieved_chunks),
     )
 
     return retrieved_chunks
