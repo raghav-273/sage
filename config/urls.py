@@ -18,12 +18,14 @@ urlpatterns = [
     #
     # Week 1 — Document upload and status:
     # path("api/v1/", include("apps.documents.urls")),
+    path("api/documents/", include("apps.documents.urls")),   # NEW
     #
     # Week 3 — Knowledge graph endpoints:
     # path("api/v1/", include("apps.graph.urls")),
     #
     # Week 4 — Search and question answering:
     # path("api/v1/", include("apps.api.urls")),
+    path("api/", include("apps.api.urls")),                    # NEW
 ]
 
 # Serve uploaded media files during development.
