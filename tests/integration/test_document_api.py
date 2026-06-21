@@ -1,18 +1,27 @@
 # tests/integration/test_document_api.py
 """
 Integration tests for document upload and detail endpoints.
-
+# OLD LOGIC:
 Uses APITestCase (wraps TestCase) — the upload view's ingestion call is
 synchronous and single-threaded, no cross-connection threading concern
 here unlike the retrieval/generation service tests.
+
+# NEW LOGIC:
+
+Integration tests for document upload and detail endpoints.
+
+The upload test now mocks run_ingestion_pipeline_task rather than letting
+it run for real — the endpoint's whole job, post-Celery, is to enqueue
+and return immediately; actually exercising the pipeline is covered by
+test_ingestion_task.py and the pre-existing test_ingestion_pipeline.py.
 """
 
 from __future__ import annotations
 
 import io
 import uuid
+from unittest import mock
 
-import fitz
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -20,6 +29,7 @@ from apps.documents.models import Document
 
 
 def _make_minimal_pdf_bytes() -> bytes:
+    import fitz
     doc = fitz.open()
     page = doc.new_page()
     page.insert_text((72, 72), "Test content for API upload.")
@@ -29,7 +39,8 @@ def _make_minimal_pdf_bytes() -> bytes:
 
 
 class DocumentUploadAPITests(APITestCase):
-    def test_upload_creates_document_and_runs_ingestion(self) -> None:
+    @mock.patch("apps.documents.views.run_ingestion_pipeline_task")
+    def test_upload_returns_immediately_with_queued_status(self, mock_task) -> None:
         upload_file = io.BytesIO(_make_minimal_pdf_bytes())
         upload_file.name = "test.pdf"
 
@@ -39,11 +50,11 @@ class DocumentUploadAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertIn("document_id", response.data)
-        self.assertEqual(response.data["status"], Document.Status.READY)
+        self.assertEqual(response.data["status"], Document.Status.QUEUED)
 
         document = Document.objects.get(id=response.data["document_id"])
-        self.assertEqual(document.name, "Test Document")
-        self.assertTrue(document.chunks.exists())
+        self.assertEqual(document.status, Document.Status.QUEUED)
+        mock_task.delay.assert_called_once_with(str(document.id))
 
     def test_upload_rejects_non_pdf_file(self) -> None:
         upload_file = io.BytesIO(b"not a pdf")
