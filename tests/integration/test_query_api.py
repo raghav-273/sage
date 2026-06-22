@@ -14,6 +14,7 @@ from __future__ import annotations
 import uuid
 from unittest import mock
 
+from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -42,6 +43,11 @@ def _make_fake_result(with_citation: bool = True) -> AnswerResult:
 
 
 class QueryAPITests(APITestCase):
+    
+    def setUp(self) -> None:
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_authenticate(user=self.user)
+    
     @mock.patch("apps.api.views.generate_answer")
     def test_query_returns_cited_answer(self, mock_generate_answer) -> None:
         mock_generate_answer.return_value = _make_fake_result(with_citation=True)

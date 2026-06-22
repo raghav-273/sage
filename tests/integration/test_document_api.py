@@ -22,6 +22,7 @@ import io
 import uuid
 from unittest import mock
 
+from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -39,6 +40,11 @@ def _make_minimal_pdf_bytes() -> bytes:
 
 
 class DocumentUploadAPITests(APITestCase):
+    
+    def setUp(self) -> None:
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_authenticate(user=self.user)
+    
     @mock.patch("apps.documents.views.run_ingestion_pipeline_task")
     def test_upload_returns_immediately_with_queued_status(self, mock_task) -> None:
         upload_file = io.BytesIO(_make_minimal_pdf_bytes())
@@ -71,6 +77,10 @@ class DocumentUploadAPITests(APITestCase):
 
 class DocumentDetailAPITests(APITestCase):
     def setUp(self) -> None:
+        
+        self.user = User.objects.create_user(username="tester", password="pass")
+        self.client.force_authenticate(user=self.user)
+        
         self.document = Document.objects.create(
             name="existing-doc", original_filename="existing.pdf",
             file_path="documents/existing.pdf", file_size_bytes=100,

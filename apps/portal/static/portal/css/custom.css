@@ -1,0 +1,42 @@
+/* Government-portal aesthetic: flat, dense, no gradients, no animation. */
+
+:root {
+    --sage-navy: #1f2d3d;
+    --sage-accent: #2563eb;
+}
+
+body {
+    background-color: #f4f5f7;
+}
+
+.navbar {
+    background-color: var(--sage-navy);
+}
+
+.navbar-brand {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+.navbar-brand small {
+    color: #cbd5e1 !important;
+    font-weight: 400;
+    margin-left: 0.5rem;
+}
+
+.sage-card,
+.sage-card-empty {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    box-shadow: none;
+}
+
+.sage-card-empty {
+    padding: 2rem;
+}
+
+.btn-primary {
+    background-color: var(--sage-accent);
+    border-color: var(--sage-accent);
+}

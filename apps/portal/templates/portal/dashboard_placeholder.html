@@ -1,0 +1,12 @@
+{% extends "portal/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="sage-card-empty">
+    <h1 class="h3">Dashboard</h1>
+    <p class="text-muted">
+        Document upload, status, and the system health overview arrive in
+        the next milestone. Authentication is confirmed working — signed in
+        as <strong>{{ user.username }}</strong>.
+    </p>
+</div>
+{% endblock %}

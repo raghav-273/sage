@@ -1,0 +1,32 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SAGE{% endblock %} — Standards and Guidelines Engine</title>
+    <link rel="stylesheet" href="{% static 'portal/vendor/bootstrap/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'portal/css/custom.css' %}">
+</head>
+<body>
+    <header class="sage-header">
+        <nav class="navbar navbar-expand">
+            <div class="container-fluid">
+                <span class="navbar-brand">
+                    SAGE <small>Standards &amp; Guidelines Engine</small>
+                </span>
+                {% if user.is_authenticated %}
+                <form method="post" action="{% url 'logout' %}" class="d-flex mb-0">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-light">Sign out</button>
+                </form>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+    <main class="container-fluid py-4">
+        {% block content %}{% endblock %}
+    </main>
+    <script src="{% static 'portal/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+</body>
+</html>

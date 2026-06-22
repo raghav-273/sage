@@ -9,6 +9,7 @@ from __future__ import annotations
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 
 from services.generation.generation_service import generate_answer
 from services.llm_client.generation_base import GenerationError
@@ -28,7 +29,9 @@ class QueryView(APIView):
     failures — Gemini down, DB issue) are the actual error case, mapped
     to 503.
     """
-
+    throttle_classes = [ScopedRateThrottle]          # added for frontend rate limiting
+    throttle_scope = "query"                         # for frontend rate limiting
+    
     def post(self, request, *args, **kwargs) -> Response:
         request_serializer = QueryRequestSerializer(data=request.data)
         request_serializer.is_valid(raise_exception=True)

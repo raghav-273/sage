@@ -26,7 +26,12 @@ urlpatterns = [
     # Week 4 — Search and question answering:
     # path("api/v1/", include("apps.api.urls")),
     path("api/", include("apps.api.urls")),                    # NEW
+    
+    path("", include("apps.portal.urls")),                     # NEW for frontend
 ]
+# module levels
+handler404 = "apps.portal.views.custom_404"
+handler500 = "apps.portal.views.custom_500"
 
 # Serve uploaded media files during development.
 # In production, delegate to nginx or a CDN. Never use this in production.
