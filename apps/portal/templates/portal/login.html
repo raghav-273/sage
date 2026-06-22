@@ -8,7 +8,11 @@
                 <h1 class="h4 mb-3">Sign in</h1>
                 {% if form.errors %}
                 <div class="alert alert-danger" role="alert">
-                    Incorrect username or password.
+                    {% if challenge_required %}
+                        Incorrect username, password, or verification answer.
+                    {% else %}
+                        Incorrect username or password.
+                    {% endif %}
                 </div>
                 {% endif %}
                 <form method="post">
@@ -21,6 +25,17 @@
                         <label for="id_password" class="form-label">Password</label>
                         <input type="password" name="password" id="id_password" class="form-control" required>
                     </div>
+                    {% if challenge_required %}
+                    <div class="mb-3">
+                        <label for="id_challenge_answer" class="form-label">{{ challenge_question }}</label>
+                        <input type="text" name="challenge_answer" id="id_challenge_answer" class="form-control" required>
+                        <input type="hidden" name="challenge_token" value="{{ challenge_token }}">
+                        <div class="form-text">
+                            Multiple failed sign-in attempts detected from this network.
+                            Please answer this question to continue.
+                        </div>
+                    </div>
+                    {% endif %}
                     <input type="hidden" name="next" value="{{ next }}">
                     <button type="submit" class="btn btn-primary w-100">Sign in</button>
                 </form>
