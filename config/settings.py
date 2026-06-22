@@ -194,7 +194,12 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
 
-
+# Adaptive login verification — apps.portal.login_security
+# No CAPTCHA on normal logins. After this many failures from the same IP
+# within the window, a plain-text challenge is additionally required.
+LOGIN_CHALLENGE_FAILURE_THRESHOLD = env.int("LOGIN_CHALLENGE_FAILURE_THRESHOLD", default=5)
+LOGIN_CHALLENGE_WINDOW_SECONDS = env.int("LOGIN_CHALLENGE_WINDOW_SECONDS", default=900)   # 15 minutes
+LOGIN_CHALLENGE_TOKEN_MAX_AGE = env.int("LOGIN_CHALLENGE_TOKEN_MAX_AGE", default=300)     # 5 minutes
 # ── Celery ────────────────────────────────────────────────────────────────────
 # All CELERY_ prefixed settings are loaded by config/celery.py via:
 #   app.config_from_object('django.conf:settings', namespace='CELERY')
