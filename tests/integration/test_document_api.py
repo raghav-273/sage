@@ -45,7 +45,7 @@ class DocumentUploadAPITests(APITestCase):
         self.user = User.objects.create_user(username="tester", password="pass")
         self.client.force_authenticate(user=self.user)
     
-    @mock.patch("apps.documents.views.run_ingestion_pipeline_task")
+    @mock.patch("apps.documents.services.run_ingestion_pipeline_task")
     def test_upload_returns_immediately_with_queued_status(self, mock_task) -> None:
         upload_file = io.BytesIO(_make_minimal_pdf_bytes())
         upload_file.name = "test.pdf"

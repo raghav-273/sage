@@ -1,0 +1,36 @@
+{% extends "portal/base.html" %}
+{% block title %}Upload document{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-6">
+    <div class="sage-card p-4">
+      <h1 class="h4 mb-3">Upload a document</h1>
+      {% if errors %}
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          {% for field, messages in errors.items %}{% for message in messages %}
+          <li>{{ message }}</li>
+          {% endfor %}{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+          <label for="id_file" class="form-label">PDF file</label>
+          <input type="file" name="file" id="id_file" accept="application/pdf" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label for="id_name" class="form-label">Display name (optional)</label>
+          <input type="text" name="name" id="id_name" class="form-control" placeholder="Defaults to filename">
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Upload</button>
+      </form>
+      <p class="small text-muted mt-3 mb-0">
+        Processing happens in the background. You'll be redirected to the
+        document's status page.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
