@@ -112,7 +112,9 @@ def document_upload_page(request: HttpRequest) -> HttpResponse:
     """
     errors = None
     if request.method == "POST":
-        serializer = DocumentUploadSerializer(data=request.POST, files=request.FILES)
+        combined_data = request.POST.copy()
+        combined_data.update(request.FILES)
+        serializer = DocumentUploadSerializer(data=combined_data)
         if serializer.is_valid():
             uploaded_file = serializer.validated_data["file"]
             name = serializer.validated_data.get("name") or uploaded_file.name
