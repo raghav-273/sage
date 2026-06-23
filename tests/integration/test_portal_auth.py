@@ -21,6 +21,14 @@ from apps.portal.login_security import generate_challenge
 
 class PortalAuthTests(TestCase):
     def setUp(self) -> None:
+        # Same reasoning as AdaptiveLoginVerificationTests: failure counts
+        # live in the cache, not the DB, so TestCase's transaction rollback
+        # doesn't clear them between test classes. Without this, a prior
+        # class's failed-login tests (e.g. test_tampered_challenge_token_is_rejected,
+        # which deliberately never succeeds) leak an elevated failure count
+        # into these tests, silently triggering the adaptive challenge here.
+        cache.clear()
+        
         self.user = User.objects.create_user(username="reviewer", password="test-pass-123")
 
     def test_anonymous_dashboard_access_redirects_to_login(self) -> None:
@@ -59,7 +67,12 @@ class PortalAuthTests(TestCase):
 
 class ApiRequiresAuthenticationTests(TestCase):
     """Confirms the global IsAuthenticated change actually took effect."""
-
+    def setUp(self) -> None:
+        # Doesn't exercise login itself, so this isn't fixing an active bug —
+        # added for defensive consistency, so this file doesn't quietly
+        # regress the same way if a future test here ever does touch login.
+        cache.clear()
+    
     def test_document_detail_endpoint_rejects_anonymous_request(self) -> None:
         client = APIClient()
         response = client.get("/api/documents/00000000-0000-0000-0000-000000000000/")
