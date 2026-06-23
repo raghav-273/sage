@@ -1,0 +1,13 @@
+{% extends "portal/base.html" %}
+{% load portal_extras %}
+{% block title %}{{ document.name }}{% endblock %}
+{% block content %}
+<div class="sage-card p-4">
+  <h1 class="h4">{{ document.name }}</h1>
+  <p>Status: <span class="badge bg-{{ document.status|status_badge_class }}">{{ document.status }}</span></p>
+  <p class="text-muted">
+    Full processing timeline and error detail arrive in the next milestone.
+    <a href="{% url 'dashboard' %}">Return to dashboard</a>.
+  </p>
+</div>
+{% endblock %}
