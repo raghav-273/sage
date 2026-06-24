@@ -1,0 +1,26 @@
+{% extends "portal/base.html" %}
+{% load portal_extras %}
+{% block title %}{{ document.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <h1 class="h4 mb-0">{{ document.name }}</h1>
+  <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">Back to dashboard</a>
+</div>
+
+<div class="sage-card p-4 mb-3">
+  <h2 class="h6 text-uppercase text-muted mb-3">Status</h2>
+  {% include "portal/_document_status.html" %}
+</div>
+
+<div class="sage-card p-4">
+  <h2 class="h6 text-uppercase text-muted mb-3">Metadata</h2>
+  <dl class="row mb-0">
+    <dt class="col-sm-3">Original filename</dt><dd class="col-sm-9">{{ document.original_filename }}</dd>
+    <dt class="col-sm-3">File size</dt><dd class="col-sm-9">{{ document.file_size_bytes|filesizeformat }}</dd>
+    <dt class="col-sm-3">Uploaded</dt><dd class="col-sm-9">{{ document.created_at|date:"Y-m-d H:i:s" }}</dd>
+    <dt class="col-sm-3">Pages</dt><dd class="col-sm-9">{{ document.page_count|default:"—" }}</dd>
+    <dt class="col-sm-3">Chunks</dt><dd class="col-sm-9">{{ document.chunks.count }}</dd>
+    <dt class="col-sm-3">Diagrams</dt><dd class="col-sm-9">{{ document.diagrams.count }}</dd>
+  </dl>
+</div>
+{% endblock %}

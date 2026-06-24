@@ -1,0 +1,15 @@
+<div id="status-section"
+     {% if not document.is_terminal %}
+     hx-get="{% url 'document-status-partial' document.id %}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
+  <span class="badge bg-{{ document.status|status_badge_class }}">{{ document.status }}</span>
+  {% if document.status == "FAILED" and document.error_message %}
+  <div class="alert alert-danger mt-2 mb-0">{{ document.error_message }}</div>
+  {% endif %}
+  <p class="small text-muted mt-2 mb-0">
+    Uploaded {{ document.created_at|date:"Y-m-d H:i:s" }} · last updated {{ document.updated_at|date:"Y-m-d H:i:s" }}
+    {% if processing_duration %}· total processing time {{ processing_duration }}{% endif %}
+  </p>
+</div>
