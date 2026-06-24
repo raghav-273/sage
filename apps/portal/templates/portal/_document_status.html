@@ -1,3 +1,4 @@
+{% load portal_extras %}
 <div id="status-section"
      {% if not document.is_terminal %}
      hx-get="{% url 'document-status-partial' document.id %}"

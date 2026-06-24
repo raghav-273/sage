@@ -23,6 +23,7 @@ from apps.documents.serializers import DocumentUploadSerializer
 from apps.documents.services import create_document_and_enqueue
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
+from services.generation.generation_service import generate_answer
 
 from .answer_rendering import render_answer_with_numbered_citations
 from .health import get_system_health
@@ -34,6 +35,7 @@ from .login_security import (
     reset_failures,
     verify_challenge,
 )
+
 from .rate_limit import is_rate_limited, record_request
 
 PAGE_SIZE = 20
@@ -186,8 +188,6 @@ def query_submit(request: HttpRequest) -> HttpResponse:
     record_request(request.user.id)
 
     try:
-        from services.generation.generation_service import generate_answer
-
         result = generate_answer(query=query_text, document_ids=document_ids)
     except (RetrievalError, GenerationError) as exc:
         return render(request, "portal/_query_result.html", {"error": str(exc)})
