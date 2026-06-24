@@ -81,6 +81,7 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -238,6 +239,22 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+
+# NEW  ──────────────────────────────────────────────────────────────
+# CompressedManifestStaticFilesStorage requires collectstatic to have run
+# before the server starts handling requests — {% static %} resolves
+# filenames via the manifest it produces. This is why collectstatic is
+# now chained into the web service's startup command (docker-compose.yml),
+# not left as a separate manual step.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 
 # ── Media files ───────────────────────────────────────────────────────────────

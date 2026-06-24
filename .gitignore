@@ -5,6 +5,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .vscode/
-
+/staticfiles/
 .hf_cache/
 .tiktoken_cache/
