@@ -55,6 +55,11 @@ auto-serves static files when `DEBUG=True` — without whitenoise, setting
 `collectstatic` runs automatically at container startup (chained into
 the `web` service's command), so this requires no manual step.
 
+**When vendoring any new minified asset:** always fetch its matching
+`.map` file too. A missing referenced source map is a fatal
+`collectstatic` error under WhiteNoise, not a warning — see the
+Milestone 12 bug report for the exact failure mode this caused.
+
 ## Included vs. explicitly deferred
 
 This system implements meaningful security and reliability practices

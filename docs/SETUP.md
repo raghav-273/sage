@@ -26,20 +26,28 @@ cp .env.example .env
 mkdir -p media/documents media/images
 
 # 4. Vendored frontend assets — only needed if these aren't already
-#    committed in your checkout (see docs/DEPLOYMENT.md for why these
-#    are vendored rather than loaded from a CDN)
+#    committed in your checkout
 mkdir -p apps/portal/static/portal/vendor/bootstrap
-curl -sL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css \
+curl -fsSL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css \
   -o apps/portal/static/portal/vendor/bootstrap/bootstrap.min.css
-curl -sL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js \
+curl -fsSL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css.map \
+  -o apps/portal/static/portal/vendor/bootstrap/bootstrap.min.css.map
+curl -fsSL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js \
   -o apps/portal/static/portal/vendor/bootstrap/bootstrap.bundle.min.js
+curl -fsSL https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js.map \
+  -o apps/portal/static/portal/vendor/bootstrap/bootstrap.bundle.min.js.map
 
 mkdir -p apps/portal/static/portal/vendor/htmx
-curl -sL https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js \
+curl -fsSL https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js \
   -o apps/portal/static/portal/vendor/htmx/htmx.min.js
+curl -fsSL https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js.map \
+  -o apps/portal/static/portal/vendor/htmx/htmx.min.js.map || true
 
-# If you just downloaded these for the first time, commit them —
-# they're meant to be checked into the repo, not re-fetched at deploy time.
+# Minified .css/.js files commonly reference a companion .map file via a
+# sourceMappingURL comment. WhiteNoise's collectstatic post-processing
+# treats a missing referenced file as fatal (this exact bug crashed the
+# web container under DEBUG=False) — always fetch the matching .map
+# alongside any new minified asset you vendor.
 
 # 5. Build and start the full stack
 docker compose up --build
