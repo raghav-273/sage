@@ -1,0 +1,25 @@
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% elif result %}
+  {% if result.has_valid_citations %}
+  <div class="sage-card p-4">
+    <h2 class="h6 text-uppercase text-muted">Answer</h2>
+    <p>{{ rendered_answer }}</p>
+    <h2 class="h6 text-uppercase text-muted mt-4">Citations</h2>
+    <ol class="mb-0">
+      {% for citation in result.citations %}
+      <li>
+        <strong>Page {{ citation.page_number }}{% if citation.section_identifier %}, Section {{ citation.section_identifier }}{% endif %}</strong>
+        — {{ citation.excerpt }}
+        <span class="text-muted small">(confidence {{ citation.confidence_score|floatformat:2 }}, {{ citation.retrieval_method }})</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% else %}
+  <div class="alert alert-info mb-0">
+    The provided documents do not contain sufficient information to answer this question.
+    Retrieved {{ result.retrieved_chunk_count }} candidate chunk(s), but none supported a cited answer.
+  </div>
+  {% endif %}
+{% endif %}
