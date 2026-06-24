@@ -265,6 +265,11 @@ MAX_UPLOAD_SIZE_BYTES = 100 * 1024 * 1024   # 100 MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE_BYTES
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE_BYTES
 
+# ── Rate Limiting ──────────────────────────────────────────────────────
+# Rate limiting for the portal query endpoint. This is a second layer of protection
+
+PORTAL_QUERY_RATE_LIMIT_WINDOW_SECONDS = env.int("PORTAL_QUERY_RATE_LIMIT_WINDOW_SECONDS", default=60)
+PORTAL_QUERY_RATE_LIMIT_MAX_REQUESTS = env.int("PORTAL_QUERY_RATE_LIMIT_MAX_REQUESTS", default=8)
 
 # ── Internationalisation ──────────────────────────────────────────────────────
 

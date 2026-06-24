@@ -71,7 +71,17 @@ class Document(models.Model):
             models.Index(fields=["status"], name="doc_status_idx"),
             models.Index(fields=["-created_at"], name="doc_created_idx"),
         ]
-
+    @property
+    def is_terminal(self) -> bool:
+        """
+        True once ingestion has reached a final state — no further
+        automatic status transition will occur. Drives the portal's
+        self-canceling HTMX status-polling pattern: while False, the
+        status partial includes hx-trigger; once True, it doesn't.
+        Plain property — no migration, no schema change.
+        """
+        return self.status in (Document.Status.READY, Document.Status.FAILED)
+    
     def __str__(self) -> str:
         return f"{self.name} [{self.status}]"
 
