@@ -1,0 +1,31 @@
+{% extends "portal/base.html" %}
+{% block title %}Ask a question{% endblock %}
+{% block content %}
+<div class="sage-card p-4">
+  <h1 class="h4 mb-3">Ask a question</h1>
+  <form hx-post="{% url 'query-submit' %}" hx-target="#query-result" hx-indicator="#query-spinner">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label class="form-label">Documents (leave blank to search all ready documents)</label>
+      <select name="document_ids" class="form-select" multiple size="5">
+        {% for document in ready_documents %}
+        <option value="{{ document.id }}">{{ document.name }}</option>
+        {% endfor %}
+      </select>
+      {% if not ready_documents %}
+      <div class="form-text text-warning">No documents are ready yet. Upload one first.</div>
+      {% endif %}
+    </div>
+    <div class="mb-3">
+      <label for="id_query" class="form-label">Question</label>
+      <textarea name="query" id="id_query" class="form-control" rows="3" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      Ask
+      <span id="query-spinner" class="spinner-border spinner-border-sm htmx-indicator ms-2"></span>
+    </button>
+  </form>
+</div>
+
+<div id="query-result" class="mt-4"></div>
+{% endblock %}

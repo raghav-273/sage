@@ -2,10 +2,9 @@
 """
 Portal views — the primary demonstration interface.
 
-dashboard, document_upload_page, and document_detail_page all call
-service-layer functions directly (apps.documents.services,
-apps.portal.health), the same parallel-consumer relationship to apps.api
-established in Milestone 9A.
+All views call service-layer functions directly (apps.documents.services,
+apps.portal.health, services.generation.generation_service), the same
+parallel-consumer relationship to apps.api established in Milestone 9A.
 """
 
 from __future__ import annotations
@@ -16,13 +15,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
 from django.db.models import Count
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer
 from apps.documents.services import create_document_and_enqueue
+from services.llm_client.generation_base import GenerationError
+from services.retrieval.retrieval_service import RetrievalError
 
+from .answer_rendering import render_answer_with_numbered_citations
 from .health import get_system_health
 from .login_security import (
     challenge_required,
@@ -32,8 +34,19 @@ from .login_security import (
     reset_failures,
     verify_challenge,
 )
+from .rate_limit import is_rate_limited, record_request
 
 PAGE_SIZE = 20
+
+
+def _processing_duration_display(document: Document) -> str | None:
+    """Human-readable elapsed time for a terminal document. None if still in progress."""
+    if not document.is_terminal:
+        return None
+    delta = document.updated_at - document.created_at
+    total_seconds = int(delta.total_seconds())
+    minutes, seconds = divmod(total_seconds, 60)
+    return f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
 
 class PortalLoginView(LoginView):
@@ -70,12 +83,7 @@ class PortalLoginView(LoginView):
 
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
-    """
-    GET /  — replaces the Milestone 9A placeholder.
-
-    Document table with search/status filtering and pagination, plus
-    the system health section.
-    """
+    """GET / — unchanged from Milestone 10."""
     documents = Document.objects.annotate(chunk_count=Count("chunks")).order_by("-created_at")
 
     search_query = request.GET.get("q", "").strip()
@@ -103,13 +111,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def document_upload_page(request: HttpRequest) -> HttpResponse:
-    """
-    GET/POST /documents/upload/
-
-    Reuses DocumentUploadSerializer directly for validation — the exact
-    same file-type/size rule the JSON API enforces, zero duplicated
-    logic. Plain form POST + redirect, not HTMX — see design note above.
-    """
+    """GET/POST /documents/upload/ — unchanged from the Milestone 10 fix."""
     errors = None
     if request.method == "POST":
         combined_data = request.POST.copy()
@@ -128,14 +130,75 @@ def document_upload_page(request: HttpRequest) -> HttpResponse:
 @login_required
 def document_detail_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
     """
-    GET /documents/<uuid>/
-
-    Minimal placeholder — status + basic metadata only. Milestone 11
-    replaces this template's content with the full timeline, error
-    detail, and live-status polling.
+    GET /documents/<uuid>/ — replaces the Milestone 10 placeholder with
+    metadata, error detail, and a self-canceling HTMX status poll.
     """
     document = get_object_or_404(Document, id=document_id)
-    return render(request, "portal/document_detail_placeholder.html", {"document": document})
+    context = {"document": document, "processing_duration": _processing_duration_display(document)}
+    return render(request, "portal/document_detail.html", context)
+
+
+@login_required
+def document_status_partial(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    GET /documents/<uuid>/status/ — HTMX polling target. Returns only the
+    status fragment, with hx-trigger present iff the document is still
+    in progress — the mechanism that makes polling self-canceling.
+    """
+    document = get_object_or_404(Document, id=document_id)
+    context = {"document": document, "processing_duration": _processing_duration_display(document)}
+    return render(request, "portal/_document_status.html", context)
+
+
+@login_required
+def query_page(request: HttpRequest) -> HttpResponse:
+    """GET /query/ — only READY documents appear in the selector."""
+    ready_documents = Document.objects.filter(status=Document.Status.READY).order_by("name")
+    return render(request, "portal/query.html", {"ready_documents": ready_documents})
+
+
+@login_required
+def query_submit(request: HttpRequest) -> HttpResponse:
+    """
+    POST /query/submit/ — HTMX partial endpoint, swapped into the query
+    page's results panel. Calls generate_answer() directly — see the
+    Milestone 11 design note on why this needs its own rate limiter.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    query_text = request.POST.get("query", "").strip()
+    raw_document_ids = request.POST.getlist("document_ids")
+
+    if not query_text:
+        return render(request, "portal/_query_result.html", {"error": "Please enter a question."})
+
+    try:
+        document_ids = [uuid.UUID(d) for d in raw_document_ids] or None
+    except ValueError:
+        return render(request, "portal/_query_result.html", {"error": "Invalid document selection."})
+
+    if is_rate_limited(request.user.id):
+        return render(
+            request, "portal/_query_result.html",
+            {"error": "Too many questions in a short time. Please wait a moment and try again."},
+        )
+    record_request(request.user.id)
+
+    try:
+        from services.generation.generation_service import generate_answer
+
+        result = generate_answer(query=query_text, document_ids=document_ids)
+    except (RetrievalError, GenerationError) as exc:
+        return render(request, "portal/_query_result.html", {"error": str(exc)})
+
+    rendered_answer = (
+        render_answer_with_numbered_citations(result) if result.has_valid_citations else None
+    )
+    return render(
+        request, "portal/_query_result.html",
+        {"result": result, "rendered_answer": rendered_answer},
+    )
 
 
 def custom_404(request: HttpRequest, exception: Exception | None = None) -> HttpResponse:
