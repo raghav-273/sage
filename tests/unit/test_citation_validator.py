@@ -116,3 +116,15 @@ class ValidateCitationsTests(unittest.TestCase):
 
         self.assertEqual(result.citations, [])
         self.assertEqual(result.rejected_citation_count, 1)
+    
+    def test_citation_marker_with_space_after_colon_is_accepted(self) -> None:
+        # Exactly the suspected failure mode: the model copying the
+        # context block's [CHUNK_ID: <uuid>] spacing instead of the
+        # instructed no-space [CITE:<uuid>] format.
+        chunk = _make_chunk()
+        answer = f"A claim. [CITE: {chunk.chunk_id}]"
+
+        result = validate_citations(answer, [chunk])
+
+        self.assertEqual(len(result.citations), 1)
+        self.assertEqual(result.rejected_citation_count, 0)

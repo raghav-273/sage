@@ -24,7 +24,7 @@ logger = logging.getLogger("services.generation.citation_validator")
 # Matches [CITE:<36 hex/hyphen characters>]. The character count matches a
 # standard UUID string's length; final validity is checked via uuid.UUID()
 # below, so a malformed-but-right-length string is rejected, not raised on.
-CITATION_MARKER_PATTERN = re.compile(r"\[CITE:([0-9a-fA-F-]{36})\]")
+CITATION_MARKER_PATTERN = re.compile(r"\[CITE:\s*([0-9a-fA-F-]{36})\]")
 
 
 @dataclass
