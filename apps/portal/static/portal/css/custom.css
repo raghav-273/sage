@@ -32,6 +32,14 @@ body {
     box-shadow: none;
 }
 
+.sage-header .nav-link {
+    color: #cbd5e1;
+}
+
+.sage-header .nav-link:hover {
+    color: #ffffff;
+}
+
 .sage-card-empty {
     padding: 2rem;
 }

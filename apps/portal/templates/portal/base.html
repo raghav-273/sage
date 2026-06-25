@@ -16,10 +16,15 @@
                     SAGE <small>Standards &amp; Guidelines Engine</small>
                 </span>
                 {% if user.is_authenticated %}
-                <form method="post" action="{% url 'logout' %}" class="d-flex mb-0">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-light">Sign out</button>
-                </form>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="{% url 'dashboard' %}" class="nav-link">Dashboard</a>
+                    <a href="{% url 'document-upload-page' %}" class="nav-link">Upload</a>
+                    <a href="{% url 'query-page' %}" class="nav-link">Ask a Question</a>
+                    <form method="post" action="{% url 'logout' %}" class="d-flex mb-0">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-light">Sign out</button>
+                    </form>
+                </div>
                 {% endif %}
             </div>
         </nav>
