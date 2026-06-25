@@ -87,6 +87,34 @@ flagged as an accepted limitation when each feature was built, not
 discovered now; restated here as the permanent, central place this
 constraint is documented.
 
+## Known external dependency: Gemini API capacity issues
+
+Gemini's Flash-tier models, including the free tier, intermittently
+return `503 UNAVAILABLE` ("high demand") errors. This is a real,
+widely-reported, ongoing issue on Google's side — confirmed via Google's
+own developer forum and the `google-genai` SDK's GitHub issue tracker —
+not specific to this deployment, this API key, or this codebase. It
+affects free and paid tiers equally.
+
+Two mitigations are built into `GeminiGenerationClient`:
+
+1. After the existing 5-attempt exponential-backoff retry is exhausted
+   against the primary model, one additional retry cycle runs against a
+   separate fallback model (`GEMINI_FALLBACK_MODEL`) — a different model
+   has an independent capacity pool.
+2. An outer, SDK-independent timeout (`GEMINI_REQUEST_TIMEOUT_SECONDS`)
+   guards against a separately-documented SDK issue where a request can
+   stall indefinitely at the socket level under load, with no exception
+   raised at all. Without this, that specific failure mode would hang a
+   query page's loading spinner forever rather than showing the clean
+   error message the rest of this system is designed to surface.
+
+Neither mitigation eliminates the underlying issue — it's outside this
+project's control. They bound its impact: any failure now surfaces as a
+clean, finite-time error rather than an indefinite hang or a total loss
+of service.
+
+
 ## Secrets
 
 `GEMINI_API_KEY` and `DJANGO_SECRET_KEY` are the only values in this
