@@ -99,7 +99,10 @@ def generate_answer(
     client = generation_client or _default_generation_client()
 
     user_prompt = build_user_prompt(query, retrieved_chunks)
+    logger.debug("generation_prompt_assembled query=%r user_prompt=%r", query, user_prompt)
+    
     answer_text = client.generate(SYSTEM_PROMPT, user_prompt)
+    logger.debug("raw_generation_response query=%r answer_text=%r", query, answer_text)
 
     validation_result = validate_citations(answer_text, retrieved_chunks)
 
