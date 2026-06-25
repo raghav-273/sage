@@ -40,6 +40,11 @@ class DashboardContentTests(TestCase):
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.context["total_documents"], 2)
         self.assertEqual(response.context["ready_documents"], 1)
+    
+    def test_navigation_links_present_when_authenticated(self) -> None:
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, reverse("document-upload-page"))
+        self.assertContains(response, reverse("query-page"))
 
     def test_search_filters_by_name(self) -> None:
         Document.objects.create(
