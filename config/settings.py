@@ -42,8 +42,15 @@ DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+# After: (before it was just = not DEBUG, which is True in production)
+# Independently overridable — DEBUG=False no longer forces this. Needed
+# because this project has no TLS termination; setting these True
+# without HTTPS breaks login into an infinite redirect loop (the cookie
+# is set but the browser refuses to resend it over plain HTTP).
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=not DEBUG)
+CSRF_COOKIE_SECURE = env.bool("CSRF_COOKIE_SECURE", default=not DEBUG)
+
+
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -76,7 +83,21 @@ LOCAL_APPS = [
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
+# ── Cache ─────────────────────────────────────────────────────────────────────
 
+# Shared cache, backed by the Redis instance already running for Celery —
+# required for correctness once DJANGO_RUN_SERVER_MODE=gunicorn runs
+# multiple worker processes. Django's default LocMemCache is per-process
+# and would silently fragment login-failure counts and the portal query
+# rate limiter across workers. A separate Redis DB index (1, not Celery's
+# 0) keeps the two workloads' keys cleanly separated.
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("DJANGO_CACHE_URL", default="redis://redis:6379/1"),
+    }
+}
 # ── Middleware ────────────────────────────────────────────────────────────────
 
 MIDDLEWARE = [

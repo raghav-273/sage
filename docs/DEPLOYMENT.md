@@ -132,3 +132,21 @@ docker compose logs -f celery_worker
 
 `DJANGO_LOG_LEVEL` controls verbosity (see
 `docs/ENVIRONMENT_VARIABLES.md`).
+
+---
+
+**Critical dependency: secure cookies require real TLS.** Setting
+`DEBUG=False` defaults `SESSION_COOKIE_SECURE`/`CSRF_COOKIE_SECURE` to
+`True` — which, served over plain HTTP (this project implements no TLS
+termination), breaks login into an infinite redirect loop: the cookie is
+set but the browser refuses to ever send it back. If demonstrating over
+HTTP without TLS, explicitly override:
+
+```bash
+SESSION_COOKIE_SECURE=False
+CSRF_COOKIE_SECURE=False
+```
+
+This is a real, intentional security tradeoff — only acceptable for a
+local or trusted-network demo, never for anything reachable over the
+open internet without HTTPS.
