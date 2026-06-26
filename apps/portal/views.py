@@ -10,7 +10,11 @@ parallel-consumer relationship to apps.api established in Milestone 9A.
 from __future__ import annotations
 
 import uuid
+import logging
 
+from .turnstile import verify_turnstile
+
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
 from django.core.paginator import Paginator
@@ -40,7 +44,6 @@ from .rate_limit import is_rate_limited, record_request
 
 PAGE_SIZE = 20
 
-
 def _processing_duration_display(document: Document) -> str | None:
     """Human-readable elapsed time for a terminal document. None if still in progress."""
     if not document.is_terminal:
@@ -51,8 +54,24 @@ def _processing_duration_display(document: Document) -> str | None:
     return f"{minutes}m {seconds}s" if minutes else f"{seconds}s"
 
 
+logger = logging.getLogger("apps.portal.views")
+
 class PortalLoginView(LoginView):
-    """Unchanged from Milestone 9 — adaptive verification logic untouched."""
+    """
+    POST /login/
+
+    Primary verification, once challenge_required() is true for this IP,
+    is Cloudflare Turnstile — real bot detection, not pattern matching.
+    The plain-text fallback (apps.portal.login_security) is offered, not
+    layered alongside it, in exactly two cases:
+      - no token submitted at all (most likely JS disabled/blocked —
+        an accessibility path, since Turnstile cannot function without
+        JS at all)
+      - Cloudflare's Siteverify API unreachable (a reliability path, so
+        a Cloudflare-side outage doesn't lock the operator out)
+    A definitive Cloudflare rejection is a hard failure — never overridden
+    by the fallback.
+    """
 
     template_name = "portal/login.html"
 
@@ -60,20 +79,51 @@ class PortalLoginView(LoginView):
         context = super().get_context_data(**kwargs)
         ip_address = get_client_ip(self.request)
         if challenge_required(ip_address):
-            question, token = generate_challenge()
             context["challenge_required"] = True
-            context["challenge_question"] = question
-            context["challenge_token"] = token
+            context["turnstile_site_key"] = settings.TURNSTILE_SITE_KEY
+            context["show_fallback_challenge"] = getattr(self, "_show_fallback_challenge", False)
+            if context["show_fallback_challenge"]:
+                question, token = generate_challenge()
+                context["fallback_challenge_question"] = question
+                context["fallback_challenge_token"] = token
         return context
 
     def form_valid(self, form):
         ip_address = get_client_ip(self.request)
         if challenge_required(ip_address):
-            token = self.request.POST.get("challenge_token", "")
-            answer = self.request.POST.get("challenge_answer", "")
-            if not verify_challenge(token, answer):
-                form.add_error(None, "Verification failed. Please answer the question correctly.")
-                return self.form_invalid(form)
+            fallback_answer = self.request.POST.get("fallback_challenge_answer", "")
+
+            if fallback_answer:
+                fallback_token = self.request.POST.get("fallback_challenge_token", "")
+                if not verify_challenge(fallback_token, fallback_answer):
+                    form.add_error(None, "Verification failed. Please try again.")
+                    return self.form_invalid(form)
+            else:
+                turnstile_token = self.request.POST.get("cf-turnstile-response", "")
+
+                if not turnstile_token:
+                    logger.info("turnstile_token_absent_offering_fallback ip=%s", ip_address)
+                    self._show_fallback_challenge = True
+                    form.add_error(None, "Please complete the verification below.")
+                    return self.form_invalid(form)
+
+                turnstile_result = verify_turnstile(turnstile_token, ip_address)
+
+                if turnstile_result is False:
+                    form.add_error(None, "Verification failed. Please complete the security check.")
+                    return self.form_invalid(form)
+
+                if turnstile_result is None:
+                    logger.warning("turnstile_unreachable_offering_fallback ip=%s", ip_address)
+                    self._show_fallback_challenge = True
+                    form.add_error(
+                        None,
+                        "Our verification service is temporarily unavailable. "
+                        "Please answer the question below instead.",
+                    )
+                    return self.form_invalid(form)
+                # turnstile_result is True — proceed
+
         reset_failures(ip_address)
         return super().form_valid(form)
 

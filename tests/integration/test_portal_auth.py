@@ -15,6 +15,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
+from unittest import mock
 
 from apps.portal.login_security import generate_challenge
 
@@ -86,15 +87,16 @@ class ApiRequiresAuthenticationTests(TestCase):
 
 class AdaptiveLoginVerificationTests(TestCase):
     """
-    Tests apps.portal.login_security's integration into PortalLoginView:
-    no challenge under the threshold, a challenge appears at/above it,
-    and it's actually enforced — not just displayed.
+    Tests apps.portal.login_security + apps.portal.turnstile's
+    integration into PortalLoginView: no challenge under the threshold,
+    Turnstile shown at/above it by default, and the two paths (no
+    token, Cloudflare unreachable) that degrade to the plain-text
+    fallback rather than hard-rejecting. verify_turnstile is mocked
+    throughout — these test the view's branching logic, not Cloudflare's
+    actual API; see tests/unit/test_turnstile.py for that.
     """
 
     def setUp(self) -> None:
-        # Failure counts live in the cache, not the DB — TestCase's
-        # transaction rollback doesn't clear this, so it must be done
-        # explicitly or counts leak between test methods.
         cache.clear()
         self.user = User.objects.create_user(username="reviewer", password="test-pass-123")
 
@@ -103,85 +105,115 @@ class AdaptiveLoginVerificationTests(TestCase):
             self.client.post(reverse("login"), {"username": "reviewer", "password": "wrong"})
 
     def test_no_challenge_below_threshold(self) -> None:
-        self._fail_login(4)  # default threshold is 5
+        self._fail_login(4)
         response = self.client.get(reverse("login"))
-        self.assertNotContains(response, "What is")
+        self.assertNotContains(response, "cf-turnstile")
 
-    def test_challenge_appears_at_threshold(self) -> None:
+    def test_turnstile_widget_appears_at_threshold(self) -> None:
         self._fail_login(5)
         response = self.client.get(reverse("login"))
-        self.assertContains(response, "What is")
+        self.assertContains(response, "cf-turnstile")
+        self.assertContains(response, "data-sitekey")
 
-    def test_correct_credentials_rejected_without_challenge_answer(self) -> None:
+    @mock.patch("apps.portal.views.verify_turnstile")
+    def test_correct_credentials_with_verified_turnstile_succeeds(self, mock_verify) -> None:
+        mock_verify.return_value = True
         self._fail_login(5)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "reviewer", "password": "test-pass-123", "cf-turnstile-response": "a-token"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
+
+    @mock.patch("apps.portal.views.verify_turnstile")
+    def test_correct_credentials_with_rejected_turnstile_fails(self, mock_verify) -> None:
+        mock_verify.return_value = False
+        self._fail_login(5)
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "reviewer", "password": "test-pass-123", "cf-turnstile-response": "a-bad-token"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
+
+    def test_correct_credentials_with_no_token_offers_fallback(self) -> None:
+        # No cf-turnstile-response at all — the accessibility path
+        # (JS disabled/blocked), not a Cloudflare API failure.
+        self._fail_login(5)
+
         response = self.client.post(
             reverse("login"), {"username": "reviewer", "password": "test-pass-123"},
         )
-        self.assertEqual(response.status_code, 200)  # re-rendered, not logged in
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "fallback_challenge_token")
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
 
-    def test_correct_credentials_and_correct_challenge_succeeds(self) -> None:
+    @mock.patch("apps.portal.views.verify_turnstile")
+    def test_cloudflare_unreachable_offers_fallback_not_hard_rejection(self, mock_verify) -> None:
+        mock_verify.return_value = None  # simulates a network/timeout failure
         self._fail_login(5)
-        question, token = generate_challenge()
-        match = re.search(r"What is (\d+) \+ (\d+)\?", question)
-        a, b = int(match.group(1)), int(match.group(2))
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "reviewer", "password": "test-pass-123", "cf-turnstile-response": "a-token"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "temporarily unavailable")
+        self.assertContains(response, "fallback_challenge_token")
+
+    def test_fallback_challenge_correct_answer_succeeds(self) -> None:
+        self._fail_login(5)
+        # First submission with no token triggers the fallback to render.
+        first_response = self.client.post(
+            reverse("login"), {"username": "reviewer", "password": "test-pass-123"},
+        )
+        question = first_response.context["fallback_challenge_question"]
+        token = first_response.context["fallback_challenge_token"]
+
+        arithmetic_match = re.search(r"What is (\d+) \+ (\d+)\?", question)
+        if arithmetic_match:
+            a, b = int(arithmetic_match.group(1)), int(arithmetic_match.group(2))
+            answer = str(a + b)
+        else:
+            answer = re.search(r'"([A-Z]+)"', question).group(1)
 
         response = self.client.post(
             reverse("login"),
             {
-                "username": "reviewer",
-                "password": "test-pass-123",
-                "challenge_answer": str(a + b),
-                "challenge_token": token,
+                "username": "reviewer", "password": "test-pass-123",
+                "fallback_challenge_answer": answer, "fallback_challenge_token": token,
             },
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
 
-    def test_correct_credentials_with_wrong_challenge_answer_fails(self) -> None:
+    def test_tampered_fallback_challenge_token_is_rejected(self) -> None:
         self._fail_login(5)
-        _, token = generate_challenge()
+        self.client.post(reverse("login"), {"username": "reviewer", "password": "test-pass-123"})
 
         response = self.client.post(
             reverse("login"),
             {
-                "username": "reviewer",
-                "password": "test-pass-123",
-                "challenge_answer": "999999",
-                "challenge_token": token,
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
-
-    def test_tampered_challenge_token_is_rejected(self) -> None:
-        self._fail_login(5)
-
-        response = self.client.post(
-            reverse("login"),
-            {
-                "username": "reviewer",
-                "password": "test-pass-123",
-                "challenge_answer": "7",
-                "challenge_token": "not-a-real-signed-token",
+                "username": "reviewer", "password": "test-pass-123",
+                "fallback_challenge_answer": "7", "fallback_challenge_token": "not-a-real-token",
             },
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
 
     def test_successful_login_resets_failure_count(self) -> None:
-        self._fail_login(4)  # below threshold
+        self._fail_login(4)  # below threshold — no challenge involved at all
 
         login_response = self.client.post(
             reverse("login"), {"username": "reviewer", "password": "test-pass-123"},
         )
         self.assertEqual(login_response.status_code, 302)
 
-        # If the count had NOT reset on success, two more failures would
-        # put it at 6 — over threshold. Since it resets, two more shouldn't
-        # trigger the challenge yet.
         self.client.post(reverse("logout"))
         self._fail_login(2)
 
         response = self.client.get(reverse("login"))
-        self.assertNotContains(response, "What is")
+        self.assertNotContains(response, "cf-turnstile")

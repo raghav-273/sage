@@ -1,5 +1,10 @@
 {% extends "portal/base.html" %}
 {% block title %}Sign in{% endblock %}
+{% block extra_head %}
+{% if challenge_required and not show_fallback_challenge %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
+{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-12 col-md-5 col-lg-4">
@@ -8,11 +13,7 @@
                 <h1 class="h4 mb-3">Sign in</h1>
                 {% if form.errors %}
                 <div class="alert alert-danger" role="alert">
-                    {% if challenge_required %}
-                        Incorrect username, password, or verification answer.
-                    {% else %}
-                        Incorrect username or password.
-                    {% endif %}
+                    {{ form.non_field_errors.0|default:"Incorrect username or password." }}
                 </div>
                 {% endif %}
                 <form method="post">
@@ -26,14 +27,25 @@
                         <input type="password" name="password" id="id_password" class="form-control" required>
                     </div>
                     {% if challenge_required %}
-                    <div class="mb-3">
-                        <label for="id_challenge_answer" class="form-label">{{ challenge_question }}</label>
-                        <input type="text" name="challenge_answer" id="id_challenge_answer" class="form-control" required>
-                        <input type="hidden" name="challenge_token" value="{{ challenge_token }}">
-                        <div class="form-text">
-                            Multiple failed sign-in attempts detected from this network.
-                            Please answer this question to continue.
+                    <div class="security-verification-panel mb-3">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span aria-hidden="true">&#128274;</span>
+                            <strong>Security Verification Required</strong>
                         </div>
+                        <p class="small text-muted mb-2">
+                            Multiple failed sign-in attempts were detected from this network.
+                            Please complete the verification below to continue.
+                        </p>
+                        {% if show_fallback_challenge %}
+                        <label for="id_fallback_challenge_answer" class="form-label">
+                            {{ fallback_challenge_question }}
+                        </label>
+                        <input type="text" name="fallback_challenge_answer" id="id_fallback_challenge_answer"
+                               class="form-control" required autocomplete="off">
+                        <input type="hidden" name="fallback_challenge_token" value="{{ fallback_challenge_token }}">
+                        {% else %}
+                        <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
+                        {% endif %}
                     </div>
                     {% endif %}
                     <input type="hidden" name="next" value="{{ next }}">
