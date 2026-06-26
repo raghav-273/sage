@@ -46,6 +46,57 @@ gunicorn doesn't reload by default, and forcing that loss onto every
 future development session for a benefit that only matters during an
 actual demo would be the wrong trade.
 
+## HTTPS (self-signed, local/demo use)
+
+Generate a certificate once (see docs/SETUP.md), then set in `.env`:
+
+```bash
+DJANGO_RUN_SERVER_MODE=gunicorn
+GUNICORN_TLS_CERTFILE=/app/certs/localhost.crt
+GUNICORN_TLS_KEYFILE=/app/certs/localhost.key
+```
+
+Then `docker compose up -d --build web`. The app is now served at
+`https://localhost:8443/` — port 8000 stops responding while TLS mode
+is active (gunicorn cannot serve both protocols from one process; see
+the architecture note in `docker-compose.yml`).
+
+**Your browser will show a security warning.** This is expected and
+correct — the certificate is self-signed, not issued by a trusted
+public CA. For local/demo use, click through it (Chrome: Advanced →
+"Proceed to localhost"). This is not a substitute for a real CA-issued
+certificate in any deployment reachable over the open internet.
+
+Once using HTTPS, remove any `SESSION_COOKIE_SECURE=False` /
+`CSRF_COOKIE_SECURE=False` overrides from `.env` — those were only
+needed as a workaround while no TLS existed at all.
+
+## Login verification: Cloudflare Turnstile
+
+After repeated failed login attempts from one IP
+(`LOGIN_CHALLENGE_FAILURE_THRESHOLD`, default 5 — set to `1` for a
+single-operator system where any failure should immediately demand
+verification), the login form requires solving a Cloudflare Turnstile
+challenge before the next attempt is accepted.
+
+**The default `.env.example` keys are Cloudflare's official test
+credentials and provide zero real protection.** Before any real demo:
+
+1. Create a free account at dash.cloudflare.com -> Turnstile
+2. Add a widget for your hostname (`localhost` is explicitly supported
+   for local testing, though Cloudflare recommends against allowing it
+   in a real production widget's hostname list)
+3. Set `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` in `.env` to the
+   real values
+4. Restart: `docker compose up -d --build web`
+
+If Cloudflare's verification service is unreachable, or if a visitor has
+JavaScript disabled (Turnstile cannot function without it), the login
+form automatically falls back to a plain-text question — this keeps the
+login path accessible and avoids a Cloudflare-side outage locking out
+the operator, at the cost of weaker bot resistance in that fallback case
+only.
+
 ## Static files
 
 `whitenoise` serves CSS/JS directly from the Django process, regardless
@@ -113,6 +164,7 @@ Neither mitigation eliminates the underlying issue — it's outside this
 project's control. They bound its impact: any failure now surfaces as a
 clean, finite-time error rather than an indefinite hang or a total loss
 of service.
+
 
 
 ## Secrets
