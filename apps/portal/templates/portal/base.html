@@ -7,6 +7,7 @@
     <title>{% block title %}SAGE{% endblock %} — Standards and Guidelines Engine</title>
     <link rel="stylesheet" href="{% static 'portal/vendor/bootstrap/bootstrap.min.css' %}">
     <link rel="stylesheet" href="{% static 'portal/css/custom.css' %}">
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
     <header class="sage-header">
