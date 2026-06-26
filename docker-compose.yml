@@ -66,26 +66,27 @@ services:
         python manage.py collectstatic --noinput &&
         python manage.py migrate &&
         if [ \"$$DJANGO_RUN_SERVER_MODE\" = \"gunicorn\" ]; then
-          gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3;
+          if [ -n \"$$GUNICORN_TLS_CERTFILE\" ] && [ -n \"$$GUNICORN_TLS_KEYFILE\" ]; then
+            echo 'Starting gunicorn with TLS on 0.0.0.0:8443';
+            gunicorn config.wsgi:application --bind 0.0.0.0:8443 --workers 3 --certfile \"$$GUNICORN_TLS_CERTFILE\" --keyfile \"$$GUNICORN_TLS_KEYFILE\";
+          else
+            echo 'Starting gunicorn (HTTP) on 0.0.0.0:8000';
+            gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3;
+          fi
         else
           python manage.py runserver 0.0.0.0:8000;
         fi
       "
     volumes:
-      # Bind mount: all source code changes on the host are immediately reflected
-      # in the container. Django's runserver detects file changes and auto-reloads.
       - .:/app
-      # media/ bind mount: uploaded PDFs and extracted images are accessible
-      # on the host at ./media/ for direct inspection during development.
       - ./media:/app/media
+      - ./certs:/app/certs:ro
     ports:
       - "8000:8000"
+      - "8443:8443"
     env_file:
-      # Loads all variables from .env into the container environment.
       - .env
     environment:
-      # Explicitly set the Django settings module.
-      # Overrides any value in .env to prevent accidental production settings use.
       DJANGO_SETTINGS_MODULE: config.settings
     depends_on:
       db:
