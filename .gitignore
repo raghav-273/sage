@@ -1,10 +1,22 @@
+# Environment
 .env
 .venv/
-media/
+
+# Python
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# VS Code
 .vscode/
-/staticfiles/
+
+# Django
+media/
+staticfiles/
+
+# Model caches
 .hf_cache/
 .tiktoken_cache/
+
+# Certificates
+certs/
