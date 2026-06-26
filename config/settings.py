@@ -56,6 +56,20 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
+# Required for CSRF validation to succeed over HTTPS on a non-standard
+# port — Django checks the request's Origin against this list for
+# "secure" requests. Without it, every POST (login, upload, query) over
+# https://localhost:8443 would fail CSRF validation.
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS", default=["http://localhost:8000", "https://localhost:8443"]
+)
+
+# Cloudflare Turnstile — defaults are Cloudflare's official "always pass"
+# TEST keys, safe for local dev with zero signup. These provide NO real
+# bot protection — replace with real keys from a free Cloudflare account
+# (dash.cloudflare.com -> Turnstile) before any real demo or deployment.
+TURNSTILE_SITE_KEY = env("TURNSTILE_SITE_KEY", default="1x00000000000000000000AA")
+TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="1x0000000000000000000000000000000AA")
 
 # ── Application definition ────────────────────────────────────────────────────
 
