@@ -2,7 +2,10 @@
 <div class="alert alert-warning">{{ error }}</div>
 {% elif result %}
   {% if result.has_valid_citations %}
-  <div class="sage-card p-4">
+  <div class="sage-card p-4 confidence-verified">
+    <div class="confidence-badge badge-verified mb-3">
+        <span aria-hidden="true">&#9989;</span> Verified — backed by citations
+    </div>
     <h2 class="h6 text-uppercase text-muted">Answer</h2>
     <p>{{ rendered_answer }}</p>
     <h2 class="h6 text-uppercase text-muted mt-4">Citations</h2>
@@ -16,10 +19,22 @@
       {% endfor %}
     </ol>
   </div>
+  {% elif result.retrieved_chunk_count > 0 %}
+  <div class="sage-card p-4 confidence-unverified">
+    <div class="confidence-badge badge-unverified mb-3">
+        <span aria-hidden="true">&#9888;</span> Unverified — not confirmed by a citation
+    </div>
+    <p class="small text-muted mb-2">
+        The model produced a response, but it could not be matched to a specific
+        passage in the document with enough confidence to cite. Treat this answer
+        with caution and verify it independently.
+    </p>
+    <p>{{ rendered_answer }}</p>
+    <p class="small text-muted mb-0">Retrieved {{ result.retrieved_chunk_count }} candidate chunk(s).</p>
+  </div>
   {% else %}
-  <div class="alert alert-info mb-0">
-    The provided documents do not contain sufficient information to answer this question.
-    Retrieved {{ result.retrieved_chunk_count }} candidate chunk(s), but none supported a cited answer.
+  <div class="confidence-badge badge-not-found mb-0">
+    <span aria-hidden="true">&#10060;</span> Not found in the available documents
   </div>
   {% endif %}
 {% endif %}
