@@ -39,6 +39,19 @@ def _make_result(with_citation: bool) -> AnswerResult:
         retrieved_chunk_count=1 if with_citation else 0, rejected_citation_count=0,
     )
 
+def _make_yellow_result() -> AnswerResult:
+    """Retrieval found candidates, but nothing validated as a citation —
+    the case this milestone now surfaces honestly instead of hiding
+    behind a generic refusal message."""
+    return AnswerResult(
+        query="ambiguous question",
+        answer_text="It's difficult to determine an exact figure from the available context.",
+        citations=[],
+        has_valid_citations=False,
+        retrieved_chunk_count=3,
+        rejected_citation_count=0,
+    )
+
 
 class QueryPageTests(TestCase):
     def setUp(self) -> None:
@@ -116,3 +129,34 @@ class QuerySubmitTests(TestCase):
 
         response = self.client.post(reverse("query-submit"), {"query": "one more"})
         self.assertContains(response, "Too many questions")
+    
+    
+    @mock.patch("apps.portal.views.generate_answer")
+    def test_cited_answer_shows_verified_badge(self, mock_generate) -> None:
+        mock_generate.return_value = _make_result(with_citation=True)
+
+        response = self.client.post(reverse("query-submit"), {"query": "tensile strength?"})
+
+        self.assertContains(response, "Verified")
+        self.assertContains(response, "[1]")
+        self.assertNotContains(response, "[CITE:")
+
+    @mock.patch("apps.portal.views.generate_answer")
+    def test_unverified_answer_shows_yellow_badge_and_actual_text(self, mock_generate) -> None:
+        mock_generate.return_value = _make_yellow_result()
+
+        response = self.client.post(reverse("query-submit"), {"query": "ambiguous question"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Unverified")
+        self.assertContains(response, "It's difficult to determine an exact figure")
+        self.assertContains(response, "Retrieved 3 candidate chunk(s)")
+
+    @mock.patch("apps.portal.views.generate_answer")
+    def test_no_retrieval_shows_red_not_found_badge(self, mock_generate) -> None:
+        mock_generate.return_value = _make_result(with_citation=False)  # retrieved_chunk_count=0
+
+        response = self.client.post(reverse("query-submit"), {"query": "unanswerable?"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Not found in the available documents")
