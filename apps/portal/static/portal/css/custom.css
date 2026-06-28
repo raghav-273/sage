@@ -59,3 +59,36 @@ body {
 .htmx-request.htmx-indicator {
     opacity: 1;
 }
+
+.confidence-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.25rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.badge-verified {
+    background-color: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #b8e0c4;
+}
+.badge-unverified {
+    background-color: #fff8e6;
+    color: #8a6d1d;
+    border: 1px solid #f0c36d;
+}
+.badge-not-found {
+    background-color: #fdecea;
+    color: #a72a1f;
+    border: 1px solid #f3b8b0;
+    padding: 0.75rem 1rem;
+    display: block;
+}
+.confidence-verified {
+    border-left: 4px solid #1e7e34;
+}
+.confidence-unverified {
+    border-left: 4px solid #f0c36d;
+}
