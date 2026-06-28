@@ -57,26 +57,14 @@ def _processing_duration_display(document: Document) -> str | None:
 logger = logging.getLogger("apps.portal.views")
 
 class PortalLoginView(LoginView):
-    """
-    POST /login/
-
-    Primary verification, once challenge_required() is true for this IP,
-    is Cloudflare Turnstile — real bot detection, not pattern matching.
-    The plain-text fallback (apps.portal.login_security) is offered, not
-    layered alongside it, in exactly two cases:
-      - no token submitted at all (most likely JS disabled/blocked —
-        an accessibility path, since Turnstile cannot function without
-        JS at all)
-      - Cloudflare's Siteverify API unreachable (a reliability path, so
-        a Cloudflare-side outage doesn't lock the operator out)
-    A definitive Cloudflare rejection is a hard failure — never overridden
-    by the fallback.
-    """
-
     template_name = "portal/login.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        if self.request.method == "POST" and context["form"].errors:
+            context["login_error_message"] = getattr(
+                self, "_login_error_message", "Incorrect username or password."
+            )
         ip_address = get_client_ip(self.request)
         if challenge_required(ip_address):
             context["challenge_required"] = True
@@ -96,7 +84,7 @@ class PortalLoginView(LoginView):
             if fallback_answer:
                 fallback_token = self.request.POST.get("fallback_challenge_token", "")
                 if not verify_challenge(fallback_token, fallback_answer):
-                    form.add_error(None, "Verification failed. Please try again.")
+                    self._login_error_message = "Verification failed. Please try again."
                     return self.form_invalid(form)
             else:
                 turnstile_token = self.request.POST.get("cf-turnstile-response", "")
@@ -104,25 +92,23 @@ class PortalLoginView(LoginView):
                 if not turnstile_token:
                     logger.info("turnstile_token_absent_offering_fallback ip=%s", ip_address)
                     self._show_fallback_challenge = True
-                    form.add_error(None, "Please complete the verification below.")
+                    self._login_error_message = "Please complete the verification below."
                     return self.form_invalid(form)
 
                 turnstile_result = verify_turnstile(turnstile_token, ip_address)
 
                 if turnstile_result is False:
-                    form.add_error(None, "Verification failed. Please complete the security check.")
+                    self._login_error_message = "Verification failed. Please complete the security check."
                     return self.form_invalid(form)
 
                 if turnstile_result is None:
                     logger.warning("turnstile_unreachable_offering_fallback ip=%s", ip_address)
                     self._show_fallback_challenge = True
-                    form.add_error(
-                        None,
+                    self._login_error_message = (
                         "Our verification service is temporarily unavailable. "
-                        "Please answer the question below instead.",
+                        "Please answer the question below instead."
                     )
                     return self.form_invalid(form)
-                # turnstile_result is True — proceed
 
         reset_failures(ip_address)
         return super().form_valid(form)
@@ -242,9 +228,7 @@ def query_submit(request: HttpRequest) -> HttpResponse:
     except (RetrievalError, GenerationError) as exc:
         return render(request, "portal/_query_result.html", {"error": str(exc)})
 
-    rendered_answer = (
-        render_answer_with_numbered_citations(result) if result.has_valid_citations else None
-    )
+    rendered_answer = render_answer_with_numbered_citations(result)
     return render(
         request, "portal/_query_result.html",
         {"result": result, "rendered_answer": rendered_answer},
