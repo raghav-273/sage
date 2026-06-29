@@ -17,4 +17,8 @@ urlpatterns = [
     ),
     path("query/", views.query_page, name="query-page"),
     path("query/submit/", views.query_submit, name="query-submit"),
+    
+    path("documents/<uuid:document_id>/ask/", views.document_conversation_page, name="document-conversation-page"),
+    path("documents/<uuid:document_id>/ask/submit/", views.document_conversation_submit, name="document-conversation-submit"),
+    path("documents/<uuid:document_id>/ask/clear/", views.document_conversation_clear, name="document-conversation-clear"),
 ]

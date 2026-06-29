@@ -28,8 +28,8 @@ from apps.documents.services import create_document_and_enqueue
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
 from services.generation.generation_service import generate_answer
+from services.generation.answer_rendering import render_answer_with_numbered_citations
 
-from .answer_rendering import render_answer_with_numbered_citations
 from .health import get_system_health
 from .login_security import (
     challenge_required,
@@ -42,7 +42,76 @@ from .login_security import (
 
 from .rate_limit import is_rate_limited, record_request
 
+from apps.conversation.models import DocumentSession
+from apps.conversation.services import ask_in_session, clear_session, get_or_create_active_session
+
 PAGE_SIZE = 20
+
+@login_required
+def document_conversation_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    GET /documents/<uuid>/ask/
+
+    Document-scoped conversation entry point, reached from the document
+    detail page. Deliberately separate from /query/, which stays
+    stateless and multi-document exactly as before.
+    """
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    session = get_or_create_active_session(document, request.user)
+    turns = session.turns.order_by("turn_index")
+    return render(
+        request, "portal/document_conversation.html",
+        {"document": document, "session": session, "turns": turns},
+    )
+
+
+@login_required
+def document_conversation_submit(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    POST /documents/<uuid>/ask/submit/ — HTMX partial: one new turn.
+
+    Shares apps.portal.rate_limit's limiter with the stateless query
+    page deliberately — both paths call Gemini; an independent budget
+    per path would double the effective ceiling against Gemini's actual
+    rate limit.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    query_text = request.POST.get("query", "").strip()
+
+    if not query_text:
+        return render(request, "portal/_conversation_turn.html", {"error": "Please enter a question."})
+
+    if is_rate_limited(request.user.id):
+        return render(
+            request, "portal/_conversation_turn.html",
+            {"error": "Too many questions in a short time. Please wait a moment and try again."},
+        )
+    record_request(request.user.id)
+
+    session = get_or_create_active_session(document, request.user)
+
+    try:
+        turn = ask_in_session(session, query_text)
+    except (RetrievalError, GenerationError) as exc:
+        return render(request, "portal/_conversation_turn.html", {"error": str(exc)})
+
+    return render(request, "portal/_conversation_turn.html", {"turn": turn})
+
+
+@login_required
+def document_conversation_clear(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """POST /documents/<uuid>/ask/clear/ — ends the active session, redirects to a fresh one."""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    session = get_or_create_active_session(document, request.user)
+    clear_session(session)
+    return redirect("document-conversation-page", document_id=document.id)
+
 
 def _processing_duration_display(document: Document) -> str | None:
     """Human-readable elapsed time for a terminal document. None if still in progress."""
