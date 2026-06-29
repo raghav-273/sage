@@ -11,7 +11,7 @@
         <div class="card sage-card">
             <div class="card-body">
                 <h1 class="h4 mb-3">Sign in</h1>
-                {% if form.errors %}
+                {% if login_error_message %}
                 <div class="alert alert-danger" role="alert">
                     {{ login_error_message }}
                 </div>
