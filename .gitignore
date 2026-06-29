@@ -20,3 +20,6 @@ staticfiles/
 
 # Certificates
 certs/
+
+# Conversation Settings
+CONVERSATION_HISTORY_WINDOW=3
