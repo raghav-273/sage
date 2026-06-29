@@ -6,7 +6,7 @@ from __future__ import annotations
 import unittest
 import uuid
 
-from apps.portal.answer_rendering import render_answer_with_numbered_citations
+from services.generation.answer_rendering import render_answer_with_numbered_citations
 from services.generation.citation_validator import Citation
 from services.generation.generation_service import AnswerResult
 
