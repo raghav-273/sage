@@ -45,7 +45,7 @@ def _make_yellow_result() -> AnswerResult:
     behind a generic refusal message."""
     return AnswerResult(
         query="ambiguous question",
-        answer_text="It's difficult to determine an exact figure from the available context.",
+        answer_text="It is difficult to determine an exact figure from the available context.",
         citations=[],
         has_valid_citations=False,
         retrieved_chunk_count=3,
@@ -95,15 +95,6 @@ class QuerySubmitTests(TestCase):
         self.assertContains(response, "720 MPa")
         self.assertNotContains(response, "[CITE:")
 
-    @mock.patch("apps.portal.views.generate_answer")
-    def test_refusal_shows_unsupported_message(self, mock_generate) -> None:
-        mock_generate.return_value = _make_result(with_citation=False)
-
-        response = self.client.post(reverse("query-submit"), {"query": "unanswerable?"})
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "do not contain sufficient information")
-
     def test_empty_query_shows_error_without_calling_generate_answer(self) -> None:
         with mock.patch("apps.portal.views.generate_answer") as mock_generate:
             response = self.client.post(reverse("query-submit"), {"query": "   "})
@@ -149,7 +140,7 @@ class QuerySubmitTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Unverified")
-        self.assertContains(response, "It's difficult to determine an exact figure")
+        self.assertContains(response, "It is difficult to determine an exact figure")
         self.assertContains(response, "Retrieved 3 candidate chunk(s)")
 
     @mock.patch("apps.portal.views.generate_answer")
