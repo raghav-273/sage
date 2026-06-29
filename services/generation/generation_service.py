@@ -20,6 +20,10 @@ from services.llm_client.base import EmbeddingClient
 from services.llm_client.generation_base import GenerationClient
 from services.retrieval.retrieval_service import retrieve
 
+from services.generation.prompts import (
+    CONVERSATIONAL_SYSTEM_PROMPT, SYSTEM_PROMPT, build_conversational_user_prompt, build_user_prompt,
+)
+
 logger = logging.getLogger("services.generation.generation_service")
 
 DEFAULT_TOP_K = 5
@@ -57,59 +61,46 @@ def generate_answer(
     top_k: int = DEFAULT_TOP_K,
     generation_client: GenerationClient | None = None,
     embedding_client: EmbeddingClient | None = None,
+    prior_turns: list[tuple[str, str]] | None = None,
 ) -> AnswerResult:
     """
-    Run the full retrieval-to-generation pipeline for a natural-language question.
+    ... (existing docstring, plus:)
 
-    If retrieval returns zero chunks, generation is skipped entirely —
-    the LLM is never called ungrounded. has_valid_citations is False
-    whenever zero citations survive validation, including that empty-
-    retrieval case; per project requirements, an uncited answer is a
-    failure case, and this flag exists so callers can detect it without
-    re-deriving the logic themselves.
-
-    Args:
-        query: the natural-language question.
-        document_ids: optional filter restricting retrieval to specific
-            documents. If None, searches across all READY documents.
-        top_k: how many chunks retrieval returns.
-        generation_client: a GenerationClient instance. If None, resolved
-            via the GENERATION_PROVIDER environment variable.
-        embedding_client: passed through to retrieve(). If None, retrieve()
-            uses its own default (the local sentence-transformers client).
+    prior_turns: optional (query, answer) pairs from earlier in a
+        conversation, oldest first. When provided, both the system
+        prompt and user prompt switch to the conversational variants
+        (see services.generation.prompts) so the model can resolve
+        follow-up references. Every existing caller omits this and is
+        completely unaffected.
     """
     retrieved_chunks = retrieve(
-        query,
-        document_ids=document_ids,
-        top_k=top_k,
-        embedding_client=embedding_client,
+        query, document_ids=document_ids, top_k=top_k, embedding_client=embedding_client,
     )
 
     if not retrieved_chunks:
         logger.info("generation_skipped reason=no_retrieved_chunks query=%r", query)
         return AnswerResult(
-            query=query,
-            answer_text="",
-            citations=[],
-            has_valid_citations=False,
-            retrieved_chunk_count=0,
-            rejected_citation_count=0,
+            query=query, answer_text="", citations=[],
+            has_valid_citations=False, retrieved_chunk_count=0, rejected_citation_count=0,
         )
 
     client = generation_client or _default_generation_client()
 
-    user_prompt = build_user_prompt(query, retrieved_chunks)
+    if prior_turns:
+        system_prompt = CONVERSATIONAL_SYSTEM_PROMPT
+        user_prompt = build_conversational_user_prompt(query, retrieved_chunks, prior_turns)
+    else:
+        system_prompt = SYSTEM_PROMPT
+        user_prompt = build_user_prompt(query, retrieved_chunks)
+
     logger.debug("generation_prompt_assembled query=%r user_prompt=%r", query, user_prompt)
-    
-    answer_text = client.generate(SYSTEM_PROMPT, user_prompt)
+    answer_text = client.generate(system_prompt, user_prompt)
     logger.debug("raw_generation_response query=%r answer_text=%r", query, answer_text)
 
     validation_result = validate_citations(answer_text, retrieved_chunks)
 
     result = AnswerResult(
-        query=query,
-        answer_text=answer_text,
-        citations=validation_result.citations,
+        query=query, answer_text=answer_text, citations=validation_result.citations,
         has_valid_citations=len(validation_result.citations) > 0,
         retrieved_chunk_count=len(retrieved_chunks),
         rejected_citation_count=validation_result.rejected_citation_count,

@@ -52,3 +52,43 @@ def build_user_prompt(query: str, chunks: list[RetrievedChunk]) -> str:
     """Assembles the full user-turn prompt: context block + the question."""
     context_block = build_context_block(chunks)
     return f"Context:\n{context_block}\n\nQuestion: {query}"
+
+
+# Added to the bottom of the existing file:
+
+CONVERSATIONAL_SYSTEM_PROMPT = SYSTEM_PROMPT + (
+    "\n6. A \"Previous conversation\" section may appear before the Context "
+    "below. It exists only to help you understand follow-up questions "
+    "(e.g. \"what about its safety margin?\"). Citations must still come "
+    "only from the Context chunks — never from the previous conversation "
+    "itself."
+)
+
+
+def build_conversational_user_prompt(
+    query: str,
+    chunks: list[RetrievedChunk],
+    prior_turns: list[tuple[str, str]],
+) -> str:
+    """
+    Same as build_user_prompt, with prior conversation turns prepended.
+
+    Retrieval itself does NOT see prior_turns — only the raw follow-up
+    text is embedded and searched (a deliberate, accepted trade-off; see
+    Milestone 13B design notes — query rewriting before retrieval would
+    handle pronoun-heavy follow-ups more robustly, at the cost of one
+    extra Gemini call per turn on a provider already known to have
+    capacity issues).
+    """
+    context_block = build_context_block(chunks)
+
+    history_block = ""
+    if prior_turns:
+        history_lines = [f"User: {q}\nAssistant: {a}" for q, a in prior_turns]
+        history_block = (
+            "Previous conversation in this session:\n"
+            + "\n---\n".join(history_lines)
+            + "\n\n"
+        )
+
+    return f"{history_block}Context:\n{context_block}\n\nQuestion: {query}"
