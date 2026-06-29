@@ -57,14 +57,32 @@ def _processing_duration_display(document: Document) -> str | None:
 logger = logging.getLogger("apps.portal.views")
 
 class PortalLoginView(LoginView):
+    """
+    POST /login/
+
+    login_error_message is tracked via an explicit instance attribute
+    (_login_error_message), never via form.errors. form_valid()'s custom
+    failure paths (Turnstile rejected, Cloudflare unreachable, wrong
+    fallback answer) deliberately don't call form.add_error() — Django's
+    own "Please enter a correct username and password" applies only to
+    the plain-wrong-credentials case, which form_valid() never reaches at
+    all (Django's base view routes that straight to form_invalid() before
+    form_valid() runs). Gating on form.errors for the custom paths was
+    the actual bug here — it silently suppressed the message whenever it
+    was needed most.
+    """
+
     template_name = "portal/login.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.method == "POST" and context["form"].errors:
-            context["login_error_message"] = getattr(
-                self, "_login_error_message", "Incorrect username or password."
-            )
+
+        custom_message = getattr(self, "_login_error_message", None)
+        if custom_message:
+            context["login_error_message"] = custom_message
+        elif self.request.method == "POST" and context["form"].errors:
+            context["login_error_message"] = "Incorrect username or password."
+
         ip_address = get_client_ip(self.request)
         if challenge_required(ip_address):
             context["challenge_required"] = True
@@ -117,7 +135,6 @@ class PortalLoginView(LoginView):
         ip_address = get_client_ip(self.request)
         record_failed_attempt(ip_address)
         return super().form_invalid(form)
-
 
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
