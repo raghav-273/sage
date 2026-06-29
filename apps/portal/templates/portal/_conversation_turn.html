@@ -1,0 +1,21 @@
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% elif turn %}
+<div class="conversation-turn mb-3">
+  <p class="fw-semibold mb-1">Q: {{ turn.query_text }}</p>
+  {% if turn.has_valid_citations %}
+  <div class="confidence-badge badge-verified mb-2">
+    <span aria-hidden="true">&#9989;</span> Verified
+  </div>
+  {% elif turn.retrieved_chunk_count > 0 %}
+  <div class="confidence-badge badge-unverified mb-2">
+    <span aria-hidden="true">&#9888;</span> Unverified
+  </div>
+  {% else %}
+  <div class="confidence-badge badge-not-found mb-2">
+    <span aria-hidden="true">&#10060;</span> Not found
+  </div>
+  {% endif %}
+  <p class="mb-0">{{ turn.answer_text }}</p>
+</div>
+{% endif %}
