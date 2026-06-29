@@ -93,6 +93,7 @@ LOCAL_APPS = [
     "apps.ingestion",
     "apps.api",   # NEW
     "apps.portal",   # NEW
+    "apps.conversation", # NEW
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -170,6 +171,10 @@ DATABASES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# ── Conversation Settings ───────────────────────────────────────────────────────
+
+CONVERSATION_HISTORY_WINDOW = env.int("CONVERSATION_HISTORY_WINDOW", default=3)
 
 
 # ── Password validation ───────────────────────────────────────────────────────
