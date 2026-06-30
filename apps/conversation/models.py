@@ -36,13 +36,13 @@ class DocumentSession(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["document", "user", "is_active"], name="convsession_doc_user_active_idx"),
+            models.Index(fields=["document", "user", "is_active"], name="conv_doc_user_active_idx"),
         ]
         constraints = [
             models.UniqueConstraint(
                 fields=["document", "user"],
                 condition=models.Q(is_active=True),
-                name="uniq_active_session_per_document_user",
+                name="uniq_active_doc_user",
             ),
         ]
 
