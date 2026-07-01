@@ -16,6 +16,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 from unittest import mock
+from django.test import TestCase, override_settings 
 
 from apps.portal.login_security import generate_challenge
 
@@ -84,7 +85,7 @@ class ApiRequiresAuthenticationTests(TestCase):
         response = client.post("/api/query/", {"query": "test"}, format="json")
         self.assertIn(response.status_code, (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN))
 
-
+@override_settings(LOGIN_CHALLENGE_FAILURE_THRESHOLD=5)
 class AdaptiveLoginVerificationTests(TestCase):
     """
     Tests apps.portal.login_security + apps.portal.turnstile's
