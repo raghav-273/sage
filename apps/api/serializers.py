@@ -33,6 +33,7 @@ class CitationSerializer(serializers.Serializer):
     excerpt = serializers.CharField()
     confidence_score = serializers.FloatField()
     retrieval_method = serializers.CharField()
+    image_path = serializers.CharField(allow_null=True)  # NEW 
 
 
 class QueryResponseSerializer(serializers.Serializer):
