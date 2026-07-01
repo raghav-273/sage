@@ -113,6 +113,8 @@ CACHES = {
         "LOCATION": env("DJANGO_CACHE_URL", default="redis://redis:6379/1"),
     }
 }
+
+
 # ── Middleware ────────────────────────────────────────────────────────────────
 
 MIDDLEWARE = [
@@ -147,6 +149,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "django.template.context_processors.media",   # NEW — makes MEDIA_URL available in all templates
             ],
         },
     },
@@ -229,8 +232,8 @@ REST_FRAMEWORK = {
         "query": "8/minute",
     },
 }
+# ── Auth redirects ──────────────────────────────────────────────────────────────
 
-# Auth redirects
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
@@ -238,7 +241,7 @@ LOGOUT_REDIRECT_URL = "login"
 # Adaptive login verification — apps.portal.login_security
 # No CAPTCHA on normal logins. After this many failures from the same IP
 # within the window, a plain-text challenge is additionally required.
-LOGIN_CHALLENGE_FAILURE_THRESHOLD = env.int("LOGIN_CHALLENGE_FAILURE_THRESHOLD", default=5)
+LOGIN_CHALLENGE_FAILURE_THRESHOLD = env.int("LOGIN_CHALLENGE_FAILURE_THRESHOLD", default=2)
 LOGIN_CHALLENGE_WINDOW_SECONDS = env.int("LOGIN_CHALLENGE_WINDOW_SECONDS", default=900)   # 15 minutes
 LOGIN_CHALLENGE_TOKEN_MAX_AGE = env.int("LOGIN_CHALLENGE_TOKEN_MAX_AGE", default=300)     # 5 minutes
 # ── Celery ────────────────────────────────────────────────────────────────────
