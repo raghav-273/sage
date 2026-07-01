@@ -3,11 +3,31 @@
 Parses [CITE:chunk_id] markers from generated text and validates them
 against the actual set of retrieved chunks.
 
-This is the core hallucination-prevention mechanism: the prompt instructs
-the model to only cite provided chunk_ids, but this module is what
-actually enforces it. Any marker whose chunk_id doesn't match a chunk
-that was genuinely in context is rejected — it never reaches the caller
-as a valid citation.
+ARCHITECTURAL NOTE — image_path enrichment (added Milestone 13C):
+
+The lookup below that populates Citation.image_path for CAPTION chunks
+is a deliberate short-term pragmatism, not the intended long-term design.
+It introduces ORM access into what should be a pure validation/transform
+layer, at the cost of up to top_k extra DB queries per request (~5 max
+at current settings).
+
+The correct long-term design is to enrich RetrievedChunk at retrieval
+time rather than here:
+
+  1. Add image_path: str | None to RetrievedChunk (retrieval_service.py)
+  2. In vector_search() and keyword_search(), .select_related("diagram_asset")
+     and populate image_path = chunk.diagram_asset.image_path if
+     chunk.chunk_type == CAPTION and chunk.diagram_asset is not None
+  3. Remove the ORM lookup block below entirely; citation_validator
+     becomes purely: iterate markers → validate IDs → copy metadata
+     from RetrievedChunk → return
+
+This change is deferred because it touches 4 stable, tested files in
+the retrieval layer with no current pressing need (5 queries per request
+is not a bottleneck at current scale). When additional diagram metadata
+is needed in citations (bounding boxes, figure numbers, OCR regions),
+implement it on RetrievedChunk at that time and remove this block as
+part of the same change.
 """
 
 from __future__ import annotations
@@ -21,16 +41,11 @@ from services.retrieval.retrieval_service import RetrievedChunk
 
 logger = logging.getLogger("services.generation.citation_validator")
 
-# Matches [CITE:<36 hex/hyphen characters>]. The character count matches a
-# standard UUID string's length; final validity is checked via uuid.UUID()
-# below, so a malformed-but-right-length string is rejected, not raised on.
 CITATION_MARKER_PATTERN = re.compile(r"\[CITE:\s*([0-9a-fA-F-]{36})\]")
 
 
 @dataclass
 class Citation:
-    """One validated citation, ready to attach to an AnswerResult."""
-
     chunk_id: uuid.UUID
     document_id: uuid.UUID
     page_number: int
@@ -38,14 +53,34 @@ class Citation:
     excerpt: str
     confidence_score: float
     retrieval_method: str
+    image_path: str | None = None
 
 
 @dataclass
 class CitationValidationResult:
-    """Output of validating all citation markers in a generated answer."""
-
     citations: list[Citation]
     rejected_citation_count: int
+
+
+def _get_image_path_for_chunk(chunk_id: uuid.UUID) -> str | None:
+    """
+    Returns the image_path for a CAPTION chunk's DiagramAsset, or None.
+
+    Isolated in its own function so the architectural note above is
+    visible alongside the call site, and so the refactor described
+    there has a single, obvious deletion target.
+    """
+    try:
+        from apps.chunks.models import ContentChunk as _CC
+        chunk_obj = _CC.objects.select_related("diagram_asset").get(id=chunk_id)
+        if (
+            chunk_obj.chunk_type == _CC.ChunkType.CAPTION
+            and chunk_obj.diagram_asset is not None
+        ):
+            return chunk_obj.diagram_asset.image_path
+    except Exception:
+        pass
+    return None
 
 
 def validate_citations(
@@ -54,14 +89,7 @@ def validate_citations(
 ) -> CitationValidationResult:
     """
     Parses every [CITE:chunk_id] marker in answer_text and validates each
-    against retrieved_chunks — the only chunks genuinely available to the
-    model.
-
-    Markers referencing a chunk_id not present in retrieved_chunks, or not
-    a well-formed UUID, are rejected: logged and excluded from the
-    returned citations list. Duplicate citations of an already-validated
-    chunk_id are deduplicated (one Citation per unique chunk_id), not
-    counted as rejections.
+    against retrieved_chunks — the only chunks genuinely available to the model.
     """
     chunk_lookup: dict[uuid.UUID, RetrievedChunk] = {c.chunk_id: c for c in retrieved_chunks}
 
@@ -85,10 +113,12 @@ def validate_citations(
             continue
 
         if chunk_id in seen_chunk_ids:
-            continue  # duplicate of an already-validated citation, not a rejection
+            continue
 
         seen_chunk_ids.add(chunk_id)
         source = chunk_lookup[chunk_id]
+        image_path = _get_image_path_for_chunk(chunk_id)
+
         citations.append(
             Citation(
                 chunk_id=source.chunk_id,
@@ -98,6 +128,7 @@ def validate_citations(
                 excerpt=source.chunk_text,
                 confidence_score=source.retrieval_score,
                 retrieval_method=source.retrieval_method,
+                image_path=image_path,
             )
         )
 
