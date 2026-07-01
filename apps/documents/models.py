@@ -26,6 +26,7 @@ class Document(models.Model):
         QUEUED = "QUEUED", "Queued"
         EXTRACTING = "EXTRACTING", "Extracting"
         CHUNKING = "CHUNKING", "Chunking"
+        CAPTIONING = "CAPTIONING", "Captioning"
         EMBEDDING = "EMBEDDING", "Embedding"
         GRAPHING = "GRAPHING", "Graphing"
         READY = "READY", "Ready"
