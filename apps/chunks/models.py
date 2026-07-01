@@ -59,6 +59,15 @@ class ContentChunk(models.Model):
         help_text='e.g. "4.3.2". Null if no heading structure was detected.',
     )
     token_count = models.PositiveIntegerField(default=0)
+    
+    diagram_asset = models.ForeignKey(
+        "DiagramAsset",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="caption_chunks",
+        help_text="Set only for CAPTION chunks; links back to the source DiagramAsset.",
+    )
 
     # pgvector column. NULL until the embedding milestone populates it.
     # No index — exact search per architecture v1.1.
