@@ -92,3 +92,10 @@ body {
 .confidence-unverified {
     border-left: 4px solid #f0c36d;
 }
+.citation-thumbnail {
+    max-height: 150px;
+    max-width: 250px;
+    object-fit: contain;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+}

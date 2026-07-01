@@ -1,3 +1,4 @@
+{% load static %}
 {% if error %}
 <div class="alert alert-warning">{{ error }}</div>
 {% elif turn %}
@@ -16,6 +17,26 @@
     <span aria-hidden="true">&#10060;</span> Not found
   </div>
   {% endif %}
-  <p class="mb-0">{{ turn.answer_text }}</p>
+  <p class="mb-2">{{ turn.answer_text }}</p>
+  {% if turn.citations %}
+  <details class="small">
+    <summary class="text-muted">Sources ({{ turn.citations|length }})</summary>
+    <ol class="mt-1 mb-0">
+      {% for citation in turn.citations %}
+      <li class="mb-2">
+        {% if citation.image_path %}
+        <div class="mb-1">
+          <img src="{{ MEDIA_URL }}{{ citation.image_path }}"
+               alt="Figure — page {{ citation.page_number }}"
+               class="img-thumbnail citation-thumbnail"
+               loading="lazy">
+        </div>
+        {% endif %}
+        Page {{ citation.page_number }}{% if citation.section_identifier %}, § {{ citation.section_identifier }}{% endif %} — {{ citation.excerpt }}
+      </li>
+      {% endfor %}
+    </ol>
+  </details>
+  {% endif %}
 </div>
 {% endif %}

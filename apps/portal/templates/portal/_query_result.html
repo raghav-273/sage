@@ -1,3 +1,4 @@
+{% load static %}
 {% if error %}
 <div class="alert alert-warning">{{ error }}</div>
 {% elif result %}
@@ -11,7 +12,15 @@
     <h2 class="h6 text-uppercase text-muted mt-4">Citations</h2>
     <ol class="mb-0">
       {% for citation in result.citations %}
-      <li>
+      <li class="mb-3">
+        {% if citation.image_path %}
+        <div class="mb-1">
+          <img src="{{ MEDIA_URL }}{{ citation.image_path }}"
+               alt="Figure — page {{ citation.page_number }}"
+               class="img-thumbnail citation-thumbnail"
+               loading="lazy">
+        </div>
+        {% endif %}
         <strong>Page {{ citation.page_number }}{% if citation.section_identifier %}, Section {{ citation.section_identifier }}{% endif %}</strong>
         — {{ citation.excerpt }}
         <span class="text-muted small">(confidence {{ citation.confidence_score|floatformat:2 }}, {{ citation.retrieval_method }})</span>
