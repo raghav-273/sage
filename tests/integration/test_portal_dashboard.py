@@ -88,6 +88,18 @@ class DashboardContentTests(TestCase):
         response = self.client.get(reverse("dashboard"))
         self.assertContains(response, "No documents found")
 
+    def test_dashboard_shows_library_summary_stats(self) -> None:
+        Document.objects.create(
+            name="Ready Doc", original_filename="r.pdf", file_path="documents/r.pdf",
+            file_size_bytes=1, status=Document.Status.READY,
+        )
+        response = self.client.get(reverse("dashboard"))
+        self.assertIn("total_clauses", response.context)
+        self.assertIn("total_figures", response.context)
+        self.assertIn("active_investigations", response.context)
+        self.assertContains(response, "Indexed Clauses")
+        self.assertContains(response, "Extracted Figures")
+
 
 class DashboardHealthSectionTests(TestCase):
     def setUp(self) -> None:

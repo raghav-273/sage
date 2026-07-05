@@ -22,6 +22,7 @@ from django.db.models import Count
 from django.http import HttpRequest, HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 
+from apps.chunks.models import DiagramAsset
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer
 from apps.documents.services import create_document_and_enqueue
@@ -204,33 +205,6 @@ class PortalLoginView(LoginView):
         ip_address = get_client_ip(self.request)
         record_failed_attempt(ip_address)
         return super().form_invalid(form)
-
-@login_required
-def dashboard(request: HttpRequest) -> HttpResponse:
-    """GET / — unchanged from Milestone 10."""
-    documents = Document.objects.annotate(chunk_count=Count("chunks")).order_by("-created_at")
-
-    search_query = request.GET.get("q", "").strip()
-    if search_query:
-        documents = documents.filter(name__icontains=search_query)
-
-    status_filter = request.GET.get("status", "").strip()
-    if status_filter:
-        documents = documents.filter(status=status_filter)
-
-    paginator = Paginator(documents, PAGE_SIZE)
-    page_obj = paginator.get_page(request.GET.get("page", 1))
-
-    context = {
-        "page_obj": page_obj,
-        "search_query": search_query,
-        "status_filter": status_filter,
-        "status_choices": Document.Status.choices,
-        "health_checks": get_system_health(),
-        "total_documents": Document.objects.count(),
-        "ready_documents": Document.objects.filter(status=Document.Status.READY).count(),
-    }
-    return render(request, "portal/dashboard.html", context)
 
 
 @login_required
