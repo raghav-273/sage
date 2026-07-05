@@ -12,7 +12,7 @@ from __future__ import annotations
 import uuid
 import logging
 
-from .turnstile import verify_turnstile
+
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -26,6 +26,9 @@ from apps.chunks.models import DiagramAsset
 from apps.documents.models import Document
 from apps.documents.serializers import DocumentUploadSerializer
 from apps.documents.services import create_document_and_enqueue
+from apps.conversation.models import DocumentSession
+from apps.conversation.services import ask_in_session, clear_session, get_or_create_active_session
+
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
 from services.generation.generation_service import generate_answer
@@ -41,12 +44,91 @@ from .login_security import (
     verify_challenge,
 )
 
+from .turnstile import verify_turnstile
 from .rate_limit import is_rate_limited, record_request
 
-from apps.conversation.models import DocumentSession
-from apps.conversation.services import ask_in_session, clear_session, get_or_create_active_session
+
 
 PAGE_SIZE = 20
+
+
+@login_required
+def document_figures_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    GET /documents/<uuid>/figures/
+
+    Gallery of all extracted figures for this document. Caption search
+    is a simple icontains filter — no new retrieval infrastructure needed.
+    DiagramAssets without captions are included (caption rendered as
+    "No caption available") so no figures are silently hidden.
+    """
+    document = get_object_or_404(Document, id=document_id)
+    search_query = request.GET.get("q", "").strip()
+
+    figures = DiagramAsset.objects.filter(document=document).select_related("page").order_by("page__page_number")
+    if search_query:
+        figures = figures.filter(caption__icontains=search_query)
+
+    return render(request, "portal/document_figures.html", {
+        "document": document,
+        "figures": figures,
+        "search_query": search_query,
+        "total_figures": DiagramAsset.objects.filter(document=document).count(),
+    })
+
+
+@login_required
+def dashboard(request: HttpRequest) -> HttpResponse:
+    """
+    GET / — Library front page.
+
+    Documents are shown as navigable knowledge objects, not status rows.
+    Each carries: stats, quick actions, investigation activity.
+    """
+    from apps.conversation.models import DocumentSession
+
+    documents_qs = Document.objects.annotate(
+        chunk_count=Count("chunks", distinct=True),
+        figure_count=Count("diagrams", distinct=True),
+        session_count=Count("conversation_sessions", distinct=True),
+    ).order_by("-created_at")
+
+    search_query = request.GET.get("q", "").strip()
+    if search_query:
+        documents_qs = documents_qs.filter(name__icontains=search_query)
+
+    status_filter = request.GET.get("status", "").strip()
+    if status_filter:
+        documents_qs = documents_qs.filter(status=status_filter)
+
+    paginator = Paginator(documents_qs, PAGE_SIZE)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    # Library-level summary
+    ready_docs = Document.objects.filter(status=Document.Status.READY)
+    from apps.chunks.models import ContentChunk
+    total_clauses = ContentChunk.objects.filter(
+        document__status=Document.Status.READY
+    ).exclude(chunk_type=ContentChunk.ChunkType.CAPTION).count()
+    total_figures = DiagramAsset.objects.filter(
+        document__status=Document.Status.READY
+    ).count()
+    active_investigations = DocumentSession.objects.filter(is_active=True).count()
+
+    context = {
+        "page_obj": page_obj,
+        "search_query": search_query,
+        "status_filter": status_filter,
+        "status_choices": Document.Status.choices,
+        "health_checks": get_system_health(),
+        # Library summary stats
+        "total_documents": Document.objects.count(),
+        "ready_documents": ready_docs.count(),
+        "total_clauses": total_clauses,
+        "total_figures": total_figures,
+        "active_investigations": active_investigations,
+    }
+    return render(request, "portal/dashboard.html", context)
 
 @login_required
 def document_conversation_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
@@ -227,12 +309,16 @@ def document_upload_page(request: HttpRequest) -> HttpResponse:
 
 @login_required
 def document_detail_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
-    """
-    GET /documents/<uuid>/ — replaces the Milestone 10 placeholder with
-    metadata, error detail, and a self-canceling HTMX status poll.
-    """
+    from apps.chunks.models import ContentChunk
     document = get_object_or_404(Document, id=document_id)
-    context = {"document": document, "processing_duration": _processing_duration_display(document)}
+    text_chunk_count = ContentChunk.objects.filter(
+        document=document
+    ).exclude(chunk_type=ContentChunk.ChunkType.CAPTION).count()
+    context = {
+        "document": document,
+        "processing_duration": _processing_duration_display(document),
+        "text_chunk_count": text_chunk_count,
+    }
     return render(request, "portal/document_detail.html", context)
 
 

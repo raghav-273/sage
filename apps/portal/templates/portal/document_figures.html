@@ -1,0 +1,109 @@
+{% extends "portal/base.html" %}
+{% load portal_extras %}
+{% block title %}Figures — {{ document.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ document.name }}</h1>
+    <p class="small text-muted mb-0">
+      Figure Library &mdash; {{ total_figures }} extracted figure{{ total_figures|pluralize }}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'document-detail-page' document.id %}" class="btn btn-sm btn-outline-secondary">Document</a>
+    {% if document.status == "READY" %}
+    <a href="{% url 'document-conversation-page' document.id %}" class="btn btn-sm btn-primary">Investigation</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="sage-card p-3 mb-4">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col">
+      <input type="text" name="q" value="{{ search_query }}"
+             class="form-control form-control-sm" placeholder="Search figure captions...">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-sm btn-outline-secondary">Search</button>
+      {% if search_query %}
+      <a href="{% url 'document-figures-page' document.id %}" class="btn btn-sm btn-link text-muted">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if not figures %}
+<div class="sage-card-empty text-center text-muted py-5">
+  {% if search_query %}
+  No figures matched <strong>{{ search_query }}</strong>.
+  {% else %}
+  No figures were extracted from this document.
+  {% endif %}
+</div>
+{% else %}
+<div class="row g-3">
+  {% for figure in figures %}
+  <div class="col-12 col-sm-6 col-md-4 col-xl-3">
+    <div class="figure-card h-100">
+      {% if figure.image_path %}
+      <div class="figure-thumbnail-wrapper" data-bs-toggle="modal" data-bs-target="#fig-modal-{{ figure.id }}">
+        <img src="{{ MEDIA_URL }}{{ figure.image_path }}"
+             alt="Figure on page {{ figure.page.page_number }}"
+             class="figure-thumbnail-img"
+             loading="lazy">
+        <div class="figure-overlay">
+          <span>&#128269; View full size</span>
+        </div>
+      </div>
+      {% else %}
+      <div class="figure-thumbnail-wrapper figure-no-image">
+        <span class="text-muted small">Image not available</span>
+      </div>
+      {% endif %}
+      <div class="figure-card-body">
+        <p class="figure-caption small mb-2">
+          {% if figure.caption %}
+            {{ figure.caption|truncatechars:120 }}
+          {% else %}
+            <span class="text-muted fst-italic">No caption generated</span>
+          {% endif %}
+        </p>
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="text-muted small">Page {{ figure.page.page_number }}</span>
+          {% if document.status == "READY" %}
+          <a href="{% url 'document-conversation-page' document.id %}?figure={{ figure.id }}"
+             class="btn btn-xs btn-outline-primary">Ask about this</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {# Full-size modal #}
+  {% if figure.image_path %}
+  <div class="modal fade" id="fig-modal-{{ figure.id }}" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header py-2">
+          <span class="small text-muted">Page {{ figure.page.page_number }} &mdash; {{ document.name }}</span>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center p-0">
+          <img src="{{ MEDIA_URL }}{{ figure.image_path }}"
+               alt="Figure on page {{ figure.page.page_number }}"
+               class="img-fluid">
+        </div>
+        {% if figure.caption %}
+        <div class="modal-footer justify-content-start py-2">
+          <p class="small text-muted mb-0">{{ figure.caption }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
