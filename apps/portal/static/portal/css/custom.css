@@ -99,3 +99,191 @@ body {
     border: 1px solid #dee2e6;
     border-radius: 0.25rem;
 }
+/* ── Library grid ──────────────────────────────────────────────────── */
+.library-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.library-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 1rem 1.25rem;
+}
+
+.library-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.library-card-title {
+    font-weight: 600;
+    color: var(--sage-navy);
+    text-decoration: none;
+}
+
+.library-card-title:hover {
+    text-decoration: underline;
+}
+
+.library-card-stats {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.library-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ── Stat cards ────────────────────────────────────────────────────── */
+.stat-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--sage-navy);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-top: 0.25rem;
+    letter-spacing: 0.04em;
+}
+
+/* ── Figure gallery ────────────────────────────────────────────────── */
+.figure-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.figure-thumbnail-wrapper {
+    position: relative;
+    height: 160px;
+    background: #f4f5f7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.figure-thumbnail-img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    transition: opacity 0.15s;
+}
+
+.figure-thumbnail-wrapper:hover .figure-thumbnail-img {
+    opacity: 0.85;
+}
+
+.figure-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(31, 45, 61, 0.75);
+    color: #fff;
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 0.3rem;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.figure-thumbnail-wrapper:hover .figure-overlay {
+    opacity: 1;
+}
+
+.figure-no-image {
+    color: #adb5bd;
+    cursor: default;
+}
+
+.figure-card-body {
+    padding: 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.figure-caption {
+    color: #495057;
+    line-height: 1.4;
+}
+
+/* ── Action tiles (document detail hub) ───────────────────────────── */
+.action-tile {
+    display: block;
+    padding: 1.25rem;
+    border-radius: 0.25rem;
+    text-decoration: none;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    transition: border-color 0.15s;
+}
+
+.action-tile:hover {
+    border-color: var(--sage-accent);
+    text-decoration: none;
+}
+
+.action-tile-primary {
+    border-left: 4px solid var(--sage-accent);
+}
+
+.action-tile-secondary {
+    border-left: 4px solid #adb5bd;
+}
+
+.action-tile-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.action-tile-label {
+    font-weight: 600;
+    color: var(--sage-navy);
+    margin-bottom: 0.15rem;
+}
+
+.action-tile-sub {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* ── Utility ───────────────────────────────────────────────────────── */
+.btn-xs {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    border-radius: 0.2rem;
+}
+
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
