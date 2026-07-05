@@ -2,30 +2,64 @@
 {% load portal_extras %}
 {% block title %}{{ document.name }}{% endblock %}
 {% block content %}
-<<div class="d-flex justify-content-between align-items-start mb-3">
-  <h1 class="h4 mb-0">{{ document.name }}</h1>
-  <div class="d-flex gap-2">
-    {% if document.status == "READY" %}
-    <a href="{% url 'document-conversation-page' document.id %}" class="btn btn-primary btn-sm">Ask about this document</a>
-    {% endif %}
-    <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">Back to dashboard</a>
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ document.name }}</h1>
+    <span class="badge bg-{{ document.status|status_badge_class }}">{{ document.status }}</span>
   </div>
+  <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-secondary">Back to library</a>
 </div>
 
+{# Quick action hub — only for READY documents #}
+{% if document.status == "READY" %}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-4">
+    <a href="{% url 'document-conversation-page' document.id %}" class="action-tile action-tile-primary">
+      <div class="action-tile-icon">&#128269;</div>
+      <div class="action-tile-label">Investigate</div>
+      <div class="action-tile-sub">Ask questions, get cited answers</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
+    <a href="{% url 'document-figures-page' document.id %}" class="action-tile action-tile-secondary">
+      <div class="action-tile-icon">&#128444;</div>
+      <div class="action-tile-label">Figure Library</div>
+      <div class="action-tile-sub">{{ document.diagrams.count }} extracted figures</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
+    <a href="{% url 'query-page' %}" class="action-tile action-tile-secondary">
+      <div class="action-tile-icon">&#9776;</div>
+      <div class="action-tile-label">Cross-Document Query</div>
+      <div class="action-tile-sub">Search across the full library</div>
+    </a>
+  </div>
+</div>
+{% endif %}
+
+{# Status and processing info #}
 <div class="sage-card p-4 mb-3">
-  <h2 class="h6 text-uppercase text-muted mb-3">Status</h2>
+  <h2 class="h6 text-uppercase text-muted mb-3">Processing Status</h2>
   {% include "portal/_document_status.html" %}
 </div>
 
+{# Metadata #}
 <div class="sage-card p-4">
-  <h2 class="h6 text-uppercase text-muted mb-3">Metadata</h2>
+  <h2 class="h6 text-uppercase text-muted mb-3">Document Metadata</h2>
   <dl class="row mb-0">
-    <dt class="col-sm-3">Original filename</dt><dd class="col-sm-9">{{ document.original_filename }}</dd>
-    <dt class="col-sm-3">File size</dt><dd class="col-sm-9">{{ document.file_size_bytes|filesizeformat }}</dd>
-    <dt class="col-sm-3">Uploaded</dt><dd class="col-sm-9">{{ document.created_at|date:"Y-m-d H:i:s" }}</dd>
-    <dt class="col-sm-3">Pages</dt><dd class="col-sm-9">{{ document.page_count|default:"—" }}</dd>
-    <dt class="col-sm-3">Chunks</dt><dd class="col-sm-9">{{ document.chunks.count }}</dd>
-    <dt class="col-sm-3">Diagrams</dt><dd class="col-sm-9">{{ document.diagrams.count }}</dd>
+    <dt class="col-sm-3">Original filename</dt>
+    <dd class="col-sm-9 font-monospace small">{{ document.original_filename }}</dd>
+    <dt class="col-sm-3">File size</dt>
+    <dd class="col-sm-9">{{ document.file_size_bytes|filesizeformat }}</dd>
+    <dt class="col-sm-3">Uploaded</dt>
+    <dd class="col-sm-9">{{ document.created_at|date:"Y-m-d H:i:s" }}</dd>
+    <dt class="col-sm-3">Pages</dt>
+    <dd class="col-sm-9">{{ document.page_count|default:"—" }}</dd>
+    <dt class="col-sm-3">Indexed clauses</dt>
+    <dd class="col-sm-9">{{ document.chunks.exclude(chunk_type="caption").count }}</dd>
+    <dt class="col-sm-3">Extracted figures</dt>
+    <dd class="col-sm-9">{{ document.diagrams.count }}</dd>
   </dl>
 </div>
 {% endblock %}
