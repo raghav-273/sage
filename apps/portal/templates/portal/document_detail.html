@@ -57,7 +57,7 @@
     <dt class="col-sm-3">Pages</dt>
     <dd class="col-sm-9">{{ document.page_count|default:"—" }}</dd>
     <dt class="col-sm-3">Indexed clauses</dt>
-    <dd class="col-sm-9">{{ document.chunks.exclude(chunk_type="caption").count }}</dd>
+    <dd class="col-sm-9">{{ text_chunk_count }}</dd>
     <dt class="col-sm-3">Extracted figures</dt>
     <dd class="col-sm-9">{{ document.diagrams.count }}</dd>
   </dl>
