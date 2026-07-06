@@ -36,9 +36,9 @@
   <div class="d-flex align-items-center gap-4 flex-wrap">
     <span class="small text-muted fw-semibold text-uppercase">System</span>
     {% for check in health_checks %}
-    <span class="small">
+    <span class="small" title="{{ check.detail }}">
       <span class="{% if check.healthy %}text-success{% else %}text-danger{% endif %}">&#9679;</span>
-      {{ check.name }}
+      {{ check.name }}{% if check.detail %} <span class="visually-hidden">{{ check.detail }}</span>{% endif %}
     </span>
     {% endfor %}
   </div>
