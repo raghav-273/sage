@@ -70,7 +70,10 @@ class DashboardContentTests(TestCase):
         )
         response = self.client.get(reverse("dashboard"), {"status": Document.Status.FAILED})
         self.assertContains(response, "Failed Doc")
-        self.assertNotContains(response, "Ready Doc")
+        # Use the library-card-title class as the discriminator — prevents
+        # matching "Ready Documents" in the global stat card, which always
+        # renders regardless of the active filter.
+        self.assertNotContains(response, 'class="library-card-title">Ready Doc')
 
     def test_chunk_count_displayed_correctly(self) -> None:
         document = Document.objects.create(
