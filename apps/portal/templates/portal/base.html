@@ -36,5 +36,36 @@
     </main>
     <script src="{% static 'portal/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'portal/vendor/htmx/htmx.min.js' %}"></script>
+    {# Citation side panel — persistent container; HTMX swaps inner content #}
+    <div id="citation-panel" class="citation-panel" role="complementary" aria-label="Citation inspector">
+      <div class="citation-panel-header">
+        <span class="small fw-semibold text-uppercase" style="letter-spacing:0.06em; color:#6c757d;">
+          Source Inspector
+        </span>
+        <button class="btn-close btn-close-sm"
+                onclick="closeCitationPanel()"
+                aria-label="Close"></button>
+      </div>
+      <div id="citation-panel-body"></div>
+    </div>
+    <div id="citation-overlay" class="citation-overlay" onclick="closeCitationPanel()"></div>
+
+    <script>
+      function openCitationPanel() {
+        document.getElementById('citation-panel').classList.add('is-open');
+        document.getElementById('citation-overlay').classList.add('is-visible');
+      }
+      function closeCitationPanel() {
+        document.getElementById('citation-panel').classList.remove('is-open');
+        document.getElementById('citation-overlay').classList.remove('is-visible');
+        document.getElementById('citation-panel-body').innerHTML = '';
+      }
+      // Open panel after HTMX loads content into the panel body.
+      document.addEventListener('htmx:afterSwap', function(evt) {
+        if (evt.detail.target.id === 'citation-panel-body') {
+          openCitationPanel();
+        }
+      });
+    </script>
 </body>
 </html>

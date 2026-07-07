@@ -287,3 +287,254 @@ body {
 .font-monospace {
     font-family: 'Courier New', monospace;
 }
+
+/* ── Investigation workspace ────────────────────────────────────────── */
+.investigation-header {
+    border-bottom: 2px solid var(--sage-navy);
+    padding-bottom: 1rem;
+}
+
+.finding-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.finding-header {
+    background: #f4f5f7;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.finding-number {
+    background: var(--sage-navy);
+    color: #fff;
+    border-radius: 50%;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.finding-question {
+    flex: 1;
+    font-weight: 600;
+    color: var(--sage-navy);
+    line-height: 1.4;
+}
+
+.finding-badge {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+}
+
+.finding-body {
+    padding: 1rem;
+}
+
+.finding-references {
+    border-top: 1px solid #f4f5f7;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+}
+
+.finding-references-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.finding-references ol {
+    font-size: 0.82rem;
+    padding-left: 1.5rem;
+    margin-bottom: 0;
+    color: #495057;
+}
+
+.finding-references li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+}
+
+.letter-spacing {
+    letter-spacing: 0.06em;
+}
+
+/* ── Citation side panel ────────────────────────────────────────────── */
+.citation-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 440px;
+    max-width: 95vw;
+    background: #fff;
+    border-left: 1px solid #dee2e6;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+    z-index: 1060;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform 0.25s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.citation-panel.is-open {
+    transform: translateX(0);
+}
+
+.citation-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.25);
+    z-index: 1055;
+    display: none;
+}
+
+.citation-overlay.is-visible {
+    display: block;
+}
+
+.citation-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    background: #f4f5f7;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.citation-panel-content {
+    flex: 1;
+}
+
+.cp-meta {
+    padding: 1rem;
+    border-bottom: 1px solid #f4f5f7;
+}
+
+.cp-meta-doc {
+    color: var(--sage-navy);
+    font-weight: 600;
+    font-size: 0.82rem;
+    margin-bottom: 0.25rem;
+}
+
+.cp-meta-location {
+    font-size: 0.82rem;
+    color: #495057;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.cp-meta-sep {
+    color: #adb5bd;
+}
+
+.cp-figure {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f4f5f7;
+    text-align: center;
+    background: #f4f5f7;
+}
+
+.cp-context-label {
+    padding: 0.5rem 1rem 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+}
+
+.cp-context {
+    padding: 0 0.75rem 1rem;
+}
+
+.cp-chunk {
+    border-radius: 0.2rem;
+    padding: 0.6rem 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.cp-chunk-adjacent {
+    background: #f8f9fa;
+    opacity: 0.7;
+}
+
+.cp-chunk-current {
+    background: #e6f4ea;
+    border-left: 3px solid #1e7e34;
+}
+
+.cp-chunk-locator {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c757d;
+    margin-bottom: 0.3rem;
+}
+
+.cp-chunk-current .cp-chunk-locator {
+    color: #1e7e34;
+}
+
+.cp-chunk-text {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: #212529;
+    margin: 0;
+}
+
+/* ── Citation list items (interactive) ──────────────────────────────── */
+.citation-list {
+    padding-left: 1.25rem;
+}
+
+.citation-list-item {
+    cursor: pointer;
+    padding: 0.5rem 0.5rem 0.5rem 0;
+    border-bottom: 1px solid #f4f5f7;
+    transition: background 0.1s;
+    list-style-type: decimal;
+    position: relative;
+}
+
+.citation-list-item:last-child {
+    border-bottom: none;
+}
+
+.citation-list-item:hover {
+    background: #f4f5f7;
+    border-radius: 0.2rem;
+}
+
+.citation-inspect-hint {
+    display: none;
+    font-size: 0.7rem;
+    color: var(--sage-accent);
+    margin-left: 0.25rem;
+}
+
+.citation-list-item:hover .citation-inspect-hint {
+    display: inline;
+}
