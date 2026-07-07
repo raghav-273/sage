@@ -1,12 +1,11 @@
 # apps/conversation/services.py
 """
-Orchestrates document-scoped conversation sessions: get-or-create the
-active session, pull the recent turn window, call generate_answer with
-that history, persist the new turn.
+Orchestrates document-scoped investigation sessions.
 """
 
 from __future__ import annotations
 
+import datetime
 from dataclasses import asdict
 
 from django.conf import settings
@@ -19,8 +18,25 @@ from services.generation.generation_service import generate_answer
 from .models import ConversationTurn, DocumentSession
 
 
-def get_or_create_active_session(document: Document, user: User) -> DocumentSession:
-    session, _ = DocumentSession.objects.get_or_create(document=document, user=user, is_active=True)
+def _default_investigation_title() -> str:
+    return f"Investigation — {datetime.date.today().strftime('%B %d, %Y')}"
+
+
+def get_or_create_active_session(
+    document: Document,
+    user: User,
+    title: str = "",
+) -> DocumentSession:
+    """
+    Returns the active session for this document/user, creating one if none
+    exists. When creating, uses the provided title or a date-based default.
+    """
+    session, _ = DocumentSession.objects.get_or_create(
+        document=document,
+        user=user,
+        is_active=True,
+        defaults={"title": title or _default_investigation_title()},
+    )
     return session
 
 
@@ -29,7 +45,6 @@ def _conversation_window_size() -> int:
 
 
 def get_recent_turns(session: DocumentSession) -> list[ConversationTurn]:
-    """Returns up to the last N turns for this session, oldest first."""
     window = _conversation_window_size()
     recent = list(session.turns.order_by("-turn_index")[:window])
     return list(reversed(recent))
@@ -39,7 +54,7 @@ def ask_in_session(session: DocumentSession, query: str) -> ConversationTurn:
     """
     Runs retrieval+generation for `query`, scoped to session.document,
     with the session's recent turns included as conversational context.
-    Persists and returns the new turn.
+    Persists and returns the new ConversationTurn (finding).
     """
     recent_turns = get_recent_turns(session)
     prior_turns = [(turn.query_text, turn.answer_text) for turn in recent_turns]
@@ -64,8 +79,7 @@ def ask_in_session(session: DocumentSession, query: str) -> ConversationTurn:
     )
 
 
-def clear_session(session: DocumentSession) -> DocumentSession:
-    """Deactivates the current session and returns a fresh, empty one."""
+def clear_session(session: DocumentSession) -> None:
+    """Deactivates the current session. Next visit starts a fresh one."""
     session.is_active = False
     session.save(update_fields=["is_active"])
-    return get_or_create_active_session(session.document, session.user)
