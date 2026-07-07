@@ -25,6 +25,12 @@ class DocumentSession(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conversation_sessions"
     )
+    title = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Human-readable title set when the investigation is started.",
+    )
     is_active = models.BooleanField(
         default=True,
         help_text="False once cleared. Clearing creates a fresh session rather than "
