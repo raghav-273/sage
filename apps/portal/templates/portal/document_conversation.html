@@ -1,38 +1,76 @@
 {% extends "portal/base.html" %}
-{% block title %}Ask about {{ document.name }}{% endblock %}
+{% load portal_extras %}
+{% block title %}{{ session.title }} — Investigation{% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-3">
-  <h1 class="h4 mb-0">Ask about: {{ document.name }}</h1>
-  <div class="d-flex gap-2">
-    <a href="{% url 'document-detail-page' document.id %}" class="btn btn-sm btn-outline-secondary">Back to document</a>
-    <form method="post" action="{% url 'document-conversation-clear' document.id %}" class="mb-0">
-      {% csrf_token %}
-      <button type="submit" class="btn btn-sm btn-outline-danger">Clear conversation</button>
-    </form>
+
+{# Investigation Header #}
+<div class="investigation-header mb-4">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+    <div>
+      <div class="text-muted small mb-1">
+        <a href="{% url 'document-detail-page' document.id %}" class="text-muted">{{ document.name }}</a>
+      </div>
+      <h1 class="h4 mb-1">{{ session.title|default:"Untitled Investigation" }}</h1>
+      <p class="small text-muted mb-0">
+        Started {{ session.created_at|date:"Y-m-d" }}
+        &mdash; {{ turns.count }} finding{{ turns.count|pluralize }}
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      {% if turns.count > 0 %}
+      <a href="{% url 'investigation-export-pdf' document.id %}" class="btn btn-sm btn-outline-secondary">
+        &#128196; Export PDF
+      </a>
+      {% endif %}
+      <form method="post" action="{% url 'document-conversation-clear' document.id %}" class="mb-0">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-danger"
+                onclick="return confirm('This will permanently clear all findings in this investigation. Continue?')">
+          Clear
+        </button>
+      </form>
+    </div>
   </div>
 </div>
 
-<div id="conversation-turns" class="mb-4">
+{% if export_error %}
+<div class="alert alert-warning">{{ export_error }}</div>
+{% endif %}
+
+{# Findings Log #}
+<div id="findings-log" class="mb-4">
   {% for turn in turns %}
-    {% include "portal/_conversation_turn.html" %}
+    {% include "portal/_conversation_turn.html" with finding_number=forloop.counter %}
   {% empty %}
-  <p class="text-muted">No questions asked yet in this session.</p>
+  <div class="sage-card-empty text-center text-muted py-5">
+    <p class="mb-1 fw-semibold">No findings recorded yet.</p>
+    <p class="small mb-0">
+      Ask your first question below. Each answer is recorded as a numbered finding
+      with citations and a verification status.
+    </p>
+  </div>
   {% endfor %}
 </div>
 
+{# New Finding Input #}
 <div class="sage-card p-4">
+  <h2 class="h6 text-uppercase text-muted mb-3 letter-spacing">Add Finding</h2>
   <form hx-post="{% url 'document-conversation-submit' document.id %}"
-        hx-target="#conversation-turns" hx-swap="beforeend" hx-indicator="#ask-spinner"
+        hx-target="#findings-log"
+        hx-swap="beforeend"
+        hx-indicator="#submit-spinner"
         hx-on::after-request="this.reset()">
     {% csrf_token %}
     <div class="mb-3">
-      <label for="id_query" class="form-label">Question</label>
-      <textarea name="query" id="id_query" class="form-control" rows="2" required></textarea>
+      <textarea name="query" class="form-control" rows="2"
+                placeholder="Enter a question or compliance requirement to investigate..."
+                required></textarea>
     </div>
     <button type="submit" class="btn btn-primary">
-      Ask
-      <span id="ask-spinner" class="spinner-border spinner-border-sm htmx-indicator ms-2"></span>
+      Submit Finding
+      <span id="submit-spinner" class="spinner-border spinner-border-sm htmx-indicator ms-2"></span>
     </button>
   </form>
 </div>
+
 {% endblock %}

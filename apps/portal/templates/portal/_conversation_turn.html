@@ -1,42 +1,57 @@
 {% load static %}
 {% if error %}
-<div class="alert alert-warning">{{ error }}</div>
+<div class="alert alert-warning mb-3">{{ error }}</div>
 {% elif turn %}
-<div class="conversation-turn mb-3">
-  <p class="fw-semibold mb-1">Q: {{ turn.query_text }}</p>
-  {% if turn.has_valid_citations %}
-  <div class="confidence-badge badge-verified mb-2">
-    <span aria-hidden="true">&#9989;</span> Verified
+<div class="finding-card mb-3" id="finding-{{ turn.turn_index }}">
+  <div class="finding-header">
+    <span class="finding-number">{{ finding_number|default:turn.turn_index }}</span>
+    <div class="finding-question">{{ turn.query_text }}</div>
+    {% if turn.has_valid_citations %}
+    <span class="confidence-badge badge-verified finding-badge">&#9989; Verified</span>
+    {% elif turn.retrieved_chunk_count > 0 %}
+    <span class="confidence-badge badge-unverified finding-badge">&#9888; Unverified</span>
+    {% else %}
+    <span class="confidence-badge badge-not-found finding-badge">&#10060; Not Found</span>
+    {% endif %}
   </div>
-  {% elif turn.retrieved_chunk_count > 0 %}
-  <div class="confidence-badge badge-unverified mb-2">
-    <span aria-hidden="true">&#9888;</span> Unverified
+  <div class="finding-body">
+    <p class="mb-2">{{ turn.answer_text }}</p>
+    {% if turn.citations %}
+    <div class="finding-references">
+      <h4 class="finding-references-label">
+        References
+        <span style="font-weight:400; font-size:0.65rem; text-transform:none; letter-spacing:0; color:#6c757d;">
+          — click to inspect
+        </span>
+      </h4>
+      <ol class="citation-list">
+        {% for citation in turn.citations %}
+        <li class="citation-list-item"
+            hx-get="{% url 'chunk-context-partial' citation.chunk_id %}"
+            hx-target="#citation-panel-body"
+            hx-swap="innerHTML"
+            title="Click to inspect source in context">
+          {% if citation.image_path %}
+          <div class="mb-1">
+            <img src="{{ MEDIA_URL }}{{ citation.image_path }}"
+                 class="citation-thumbnail"
+                 alt="Figure on page {{ citation.page_number }}"
+                 loading="lazy">
+          </div>
+          {% endif %}
+          <span class="font-monospace small fw-semibold">
+            Page {{ citation.page_number }}{% if citation.section_identifier %}, &sect; {{ citation.section_identifier }}{% endif %}
+          </span>
+          {% if citation.excerpt %}
+          <br>
+          <span class="text-muted small">{{ citation.excerpt|truncatechars:120 }}</span>
+          {% endif %}
+          <span class="citation-inspect-hint">Inspect &rarr;</span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endif %}
   </div>
-  {% else %}
-  <div class="confidence-badge badge-not-found mb-2">
-    <span aria-hidden="true">&#10060;</span> Not found
-  </div>
-  {% endif %}
-  <p class="mb-2">{{ turn.answer_text }}</p>
-  {% if turn.citations %}
-  <details class="small">
-    <summary class="text-muted">Sources ({{ turn.citations|length }})</summary>
-    <ol class="mt-1 mb-0">
-      {% for citation in turn.citations %}
-      <li class="mb-2">
-        {% if citation.image_path %}
-        <div class="mb-1">
-          <img src="{{ MEDIA_URL }}{{ citation.image_path }}"
-               alt="Figure — page {{ citation.page_number }}"
-               class="img-thumbnail citation-thumbnail"
-               loading="lazy">
-        </div>
-        {% endif %}
-        Page {{ citation.page_number }}{% if citation.section_identifier %}, § {{ citation.section_identifier }}{% endif %} — {{ citation.excerpt }}
-      </li>
-      {% endfor %}
-    </ol>
-  </details>
-  {% endif %}
 </div>
 {% endif %}

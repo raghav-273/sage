@@ -1,4 +1,4 @@
-{% load static %}
+{% load static portal_extras %}
 {% if error %}
 <div class="alert alert-warning">{{ error }}</div>
 {% elif result %}
@@ -9,24 +9,39 @@
     </div>
     <h2 class="h6 text-uppercase text-muted">Answer</h2>
     <p>{{ rendered_answer }}</p>
-    <h2 class="h6 text-uppercase text-muted mt-4">Citations</h2>
-    <ol class="mb-0">
+    <h2 class="h6 text-uppercase text-muted mt-4">
+      Citations
+      <span class="text-muted fw-normal" style="font-size:0.7rem; text-transform:none; letter-spacing:0;">
+        — click any source to inspect in context
+      </span>
+    </h2>
+    <ol class="mb-0 citation-list">
       {% for citation in result.citations %}
-      <li class="mb-3">
+      <li class="citation-list-item"
+          hx-get="{% url 'chunk-context-partial' citation.chunk_id %}"
+          hx-target="#citation-panel-body"
+          hx-swap="innerHTML"
+          hx-indicator="#citation-loading"
+          title="Click to inspect source in context">
         {% if citation.image_path %}
         <div class="mb-1">
           <img src="{{ MEDIA_URL }}{{ citation.image_path }}"
                alt="Figure — page {{ citation.page_number }}"
-               class="img-thumbnail citation-thumbnail"
-               loading="lazy">
+               class="citation-thumbnail" loading="lazy">
         </div>
         {% endif %}
-        <strong>Page {{ citation.page_number }}{% if citation.section_identifier %}, Section {{ citation.section_identifier }}{% endif %}</strong>
-        — {{ citation.excerpt }}
-        <span class="text-muted small">(confidence {{ citation.confidence_score|floatformat:2 }}, {{ citation.retrieval_method }})</span>
+        <strong class="font-monospace">
+          Page {{ citation.page_number }}{% if citation.section_identifier %}, &sect; {{ citation.section_identifier }}{% endif %}
+        </strong>
+        — {{ citation.excerpt|truncatechars:120 }}
+        <span class="text-muted small">
+          ({{ citation.confidence_score|floatformat:2 }} confidence &middot; {{ citation.retrieval_method }})
+        </span>
+        <span class="citation-inspect-hint">Inspect &rarr;</span>
       </li>
       {% endfor %}
     </ol>
+    <div id="citation-loading" class="htmx-indicator small text-muted mt-2">Loading source context...</div>
   </div>
   {% elif result.retrieved_chunk_count > 0 %}
   <div class="sage-card p-4 confidence-unverified">
