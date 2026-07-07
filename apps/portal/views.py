@@ -29,6 +29,7 @@ from apps.documents.services import create_document_and_enqueue
 from apps.conversation.models import DocumentSession
 from apps.conversation.services import ask_in_session, clear_session, get_or_create_active_session
 
+
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
 from services.generation.generation_service import generate_answer
@@ -76,6 +77,42 @@ def document_figures_page(request: HttpRequest, document_id: uuid.UUID) -> HttpR
         "total_figures": DiagramAsset.objects.filter(document=document).count(),
     })
 
+@login_required
+def chunk_context_partial(request: HttpRequest, chunk_id: uuid.UUID) -> HttpResponse:
+    """
+    GET /chunks/<uuid>/context/ — HTMX citation panel target.
+
+    Returns the cited chunk with up to 2 adjacent chunks (by chunk_index)
+    on either side from the same document, so engineers can verify a citation
+    in full reading context rather than in isolation.
+    """
+    from apps.chunks.models import ContentChunk
+
+    chunk = get_object_or_404(
+        ContentChunk.objects.select_related("document", "page", "diagram_asset"),
+        id=chunk_id,
+    )
+
+    before = list(
+        ContentChunk.objects
+        .filter(document=chunk.document, chunk_index__lt=chunk.chunk_index)
+        .select_related("page")
+        .order_by("-chunk_index")[:2]
+    )
+    before.reverse()
+
+    after = list(
+        ContentChunk.objects
+        .filter(document=chunk.document, chunk_index__gt=chunk.chunk_index)
+        .select_related("page")
+        .order_by("chunk_index")[:2]
+    )
+
+    return render(request, "portal/_citation_panel.html", {
+        "chunk": chunk,
+        "before": before,
+        "after": after,
+    })
 
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
@@ -135,29 +172,41 @@ def document_conversation_page(request: HttpRequest, document_id: uuid.UUID) -> 
     """
     GET /documents/<uuid>/ask/
 
-    Document-scoped conversation entry point, reached from the document
-    detail page. Deliberately separate from /query/, which stays
-    stateless and multi-document exactly as before.
+    If no active session exists: show the investigation start form.
+    If active session exists: show the investigation workspace.
+
+    POST /documents/<uuid>/ask/ (starting a new investigation):
+    Creates a session with the provided title and redirects back.
     """
     document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
-    session = get_or_create_active_session(document, request.user)
+
+    try:
+        session = DocumentSession.objects.get(document=document, user=request.user, is_active=True)
+    except DocumentSession.DoesNotExist:
+        session = None
+
+    if request.method == "POST" and session is None:
+        title = request.POST.get("title", "").strip()
+        session = DocumentSession.objects.create(
+            document=document, user=request.user, is_active=True,
+            title=title or f"Investigation — {document.name}",
+        )
+        return redirect("document-conversation-page", document_id=document.id)
+
+    if session is None:
+        return render(request, "portal/investigation_start.html", {"document": document})
+
     turns = session.turns.order_by("turn_index")
-    return render(
-        request, "portal/document_conversation.html",
-        {"document": document, "session": session, "turns": turns},
-    )
+    return render(request, "portal/document_conversation.html", {
+        "document": document,
+        "session": session,
+        "turns": turns,
+    })
 
 
 @login_required
 def document_conversation_submit(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
-    """
-    POST /documents/<uuid>/ask/submit/ — HTMX partial: one new turn.
-
-    Shares apps.portal.rate_limit's limiter with the stateless query
-    page deliberately — both paths call Gemini; an independent budget
-    per path would double the effective ceiling against Gemini's actual
-    rate limit.
-    """
+    """POST /documents/<uuid>/ask/submit/ — HTMX partial for a new finding."""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
@@ -181,19 +230,58 @@ def document_conversation_submit(request: HttpRequest, document_id: uuid.UUID) -
     except (RetrievalError, GenerationError) as exc:
         return render(request, "portal/_conversation_turn.html", {"error": str(exc)})
 
-    return render(request, "portal/_conversation_turn.html", {"turn": turn})
+    finding_number = session.turns.count()
+    return render(request, "portal/_conversation_turn.html", {
+        "turn": turn,
+        "finding_number": finding_number,
+    })
 
 
 @login_required
 def document_conversation_clear(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
-    """POST /documents/<uuid>/ask/clear/ — ends the active session, redirects to a fresh one."""
+    """POST /documents/<uuid>/ask/clear/"""
     if request.method != "POST":
         return HttpResponseNotAllowed(["POST"])
 
     document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
-    session = get_or_create_active_session(document, request.user)
-    clear_session(session)
+    try:
+        session = DocumentSession.objects.get(document=document, user=request.user, is_active=True)
+        clear_session(session)
+    except DocumentSession.DoesNotExist:
+        pass
+
     return redirect("document-conversation-page", document_id=document.id)
+
+
+@login_required
+def investigation_export_pdf(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """GET /documents/<uuid>/ask/export.pdf"""
+    from django.http import HttpResponse as DjangoHttpResponse
+    from services.export.investigation_pdf import generate_investigation_pdf
+
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    try:
+        session = DocumentSession.objects.get(document=document, user=request.user, is_active=True)
+    except DocumentSession.DoesNotExist:
+        return redirect("document-conversation-page", document_id=document.id)
+
+    try:
+        pdf_bytes = generate_investigation_pdf(session)
+    except Exception as exc:
+        logger.error("investigation_pdf_export_failed session_id=%s error=%s", session.id, exc)
+        return render(request, "portal/document_conversation.html", {
+            "document": document,
+            "session": session,
+            "turns": session.turns.order_by("turn_index"),
+            "export_error": "PDF generation failed. Please try again.",
+        })
+
+    safe_title = "".join(c if c.isalnum() or c in "- " else "_" for c in session.title)
+    filename = f"SAGE_Investigation_{safe_title or 'Report'}.pdf"
+
+    response = DjangoHttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
 
 
 def _processing_duration_display(document: Document) -> str | None:
