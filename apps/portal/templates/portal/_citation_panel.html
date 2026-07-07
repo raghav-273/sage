@@ -1,0 +1,54 @@
+{% load static %}
+<div class="citation-panel-content">
+
+  {# Chunk metadata header #}
+  <div class="cp-meta">
+    <div class="cp-meta-doc font-monospace small">{{ chunk.document.name }}</div>
+    <div class="cp-meta-location">
+      <span>Page {{ chunk.page.page_number }}</span>
+      {% if chunk.section_identifier %}
+      <span class="cp-meta-sep">&mdash;</span>
+      <span class="font-monospace">{{ chunk.section_identifier }}</span>
+      {% endif %}
+      <span class="cp-meta-sep">&mdash;</span>
+      <span class="badge bg-secondary" style="font-size:0.65rem;">{{ chunk.chunk_type }}</span>
+    </div>
+  </div>
+
+  {# Figure thumbnail for CAPTION chunks #}
+  {% if chunk.diagram_asset and chunk.diagram_asset.image_path %}
+  <div class="cp-figure">
+    <img src="{{ MEDIA_URL }}{{ chunk.diagram_asset.image_path }}"
+         alt="Referenced figure"
+         class="img-fluid"
+         style="max-height:200px; object-fit:contain;">
+    <p class="small text-muted mt-1 mb-0">Referenced figure — page {{ chunk.page.page_number }}</p>
+  </div>
+  {% endif %}
+
+  {# Context strip: before → current → after #}
+  <div class="cp-context-label">Reading context</div>
+  <div class="cp-context">
+    {% for adj in before %}
+    <div class="cp-chunk cp-chunk-adjacent">
+      <div class="cp-chunk-locator">pg. {{ adj.page.page_number }}</div>
+      <p class="cp-chunk-text">{{ adj.chunk_text|truncatechars:200 }}</p>
+    </div>
+    {% endfor %}
+
+    <div class="cp-chunk cp-chunk-current">
+      <div class="cp-chunk-locator">
+        &#9658; Cited passage &mdash; pg. {{ chunk.page.page_number }}
+      </div>
+      <p class="cp-chunk-text">{{ chunk.chunk_text }}</p>
+    </div>
+
+    {% for adj in after %}
+    <div class="cp-chunk cp-chunk-adjacent">
+      <div class="cp-chunk-locator">pg. {{ adj.page.page_number }}</div>
+      <p class="cp-chunk-text">{{ adj.chunk_text|truncatechars:200 }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
