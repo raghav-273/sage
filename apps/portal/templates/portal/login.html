@@ -1,58 +1,151 @@
-{% extends "portal/base.html" %}
+{% extends "portal/base_login.html" %}
 {% block title %}Sign in{% endblock %}
 {% block extra_head %}
 {% if challenge_required and not show_fallback_challenge %}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 {% endif %}
 {% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-12 col-md-5 col-lg-4">
-        <div class="card sage-card">
-            <div class="card-body">
-                <h1 class="h4 mb-3">Sign in</h1>
-                {% if login_error_message %}
-                <div class="alert alert-danger" role="alert">
-                    {{ login_error_message }}
-                </div>
-                {% endif %}
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="id_username" class="form-label">Username</label>
-                        <input type="text" name="username" id="id_username" class="form-control" autofocus required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="id_password" class="form-label">Password</label>
-                        <input type="password" name="password" id="id_password" class="form-control" required>
-                    </div>
-                    {% if challenge_required %}
-                    <div class="security-verification-panel mb-3">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <span aria-hidden="true">&#128274;</span>
-                            <strong>Security Verification Required</strong>
-                        </div>
-                        <p class="small text-muted mb-2">
-                            Multiple failed sign-in attempts were detected from this network.
-                            Please complete the verification below to continue.
-                        </p>
-                        {% if show_fallback_challenge %}
-                        <label for="id_fallback_challenge_answer" class="form-label">
-                            {{ fallback_challenge_question }}
-                        </label>
-                        <input type="text" name="fallback_challenge_answer" id="id_fallback_challenge_answer"
-                               class="form-control" required autocomplete="off">
-                        <input type="hidden" name="fallback_challenge_token" value="{{ fallback_challenge_token }}">
-                        {% else %}
-                        <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}"></div>
-                        {% endif %}
-                    </div>
-                    {% endif %}
-                    <input type="hidden" name="next" value="{{ next }}">
-                    <button type="submit" class="btn btn-primary w-100">Sign in</button>
-                </form>
-            </div>
-        </div>
+<div class="login-page">
+
+  {# ── Left panel: branding + security posture ──────────────────── #}
+  <div class="login-left">
+    <div class="login-brand">
+      <div class="login-brand-name">SAGE</div>
+      <div class="login-brand-full">Standards &amp; Guidelines Engine</div>
     </div>
+
+    <p class="login-brand-desc">
+      Engineering document Q&amp;A with verifiable, citation-enforced answers.
+      Every response is traceable to a specific clause in a specific document.
+    </p>
+
+    <div class="login-security-panel">
+      <div class="login-security-label">Active Security</div>
+      <ul class="login-security-list">
+        <li>
+          <span class="login-security-dot dot-green"></span>
+          Cloudflare Turnstile verification
+        </li>
+        <li>
+          <span class="login-security-dot dot-green"></span>
+          All login attempts are logged
+        </li>
+        <li>
+          <span class="login-security-dot dot-green"></span>
+          Automated IP lockout active
+        </li>
+        <li>
+          <span class="login-security-dot dot-green"></span>
+          Bot honeypot detection
+        </li>
+      </ul>
+    </div>
+
+    <div class="login-version">SAGE v2.0 &mdash; Engineering Evidence Platform</div>
+  </div>
+
+  {# ── Right panel: login form ──────────────────────────────────── #}
+  <div class="login-right">
+    <div class="login-form-container">
+      <h1 class="login-form-title">Sign in</h1>
+      <p class="login-form-sub">Authorised access only. All activity is monitored and logged.</p>
+
+      {# Lockout state — full block #}
+      {% if is_locked_out %}
+      <div class="login-lockout-notice">
+        <div class="login-lockout-icon">&#128274;</div>
+        <div>
+          <strong>Access temporarily suspended</strong>
+          <p class="mb-0 small">
+            Too many failed login attempts from this IP address.
+            Access will be restored in approximately {{ lockout_minutes }} minute{{ lockout_minutes|pluralize }}.
+          </p>
+        </div>
+      </div>
+
+      {% else %}
+
+      {# Error message #}
+      {% if login_error_message %}
+      <div class="login-error-notice" role="alert">
+        <span aria-hidden="true">&#9888;</span>
+        {{ login_error_message }}
+      </div>
+      {% endif %}
+
+      <form method="post" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        {# ── Honeypot — invisible to humans, bots fill this in ── #}
+        <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" tabindex="-1">
+          <label for="contact_url">Leave this field empty</label>
+          <input type="text" id="contact_url" name="contact_url" tabindex="-1" autocomplete="off">
+        </div>
+
+        <div class="login-field">
+          <label for="id_username" class="login-label">Username</label>
+          <input type="text" name="username" id="id_username"
+                 class="login-input" autofocus required autocomplete="username">
+        </div>
+
+        <div class="login-field">
+          <label for="id_password" class="login-label">Password</label>
+          <div class="login-password-wrapper">
+            <input type="password" name="password" id="id_password"
+                   class="login-input" required autocomplete="current-password">
+            <button type="button" class="login-password-toggle"
+                    onclick="togglePasswordVisibility()"
+                    aria-label="Show or hide password">
+              <span id="toggle-icon">&#128065;</span>
+            </button>
+          </div>
+        </div>
+
+        {# ── Verification layer ─────────────────────────────────── #}
+        {% if challenge_required %}
+        <div class="login-verification-block">
+          <div class="login-verification-header">
+            <span>&#128274;</span>
+            <span>Verification required</span>
+          </div>
+          {% if show_fallback_challenge %}
+          <p class="small text-muted mb-2">{{ login_error_message }}</p>
+          <label for="id_fallback_challenge_answer" class="login-label">
+            {{ fallback_challenge_question }}
+          </label>
+          <input type="text" name="fallback_challenge_answer" id="id_fallback_challenge_answer"
+                 class="login-input" required autocomplete="off">
+          <input type="hidden" name="fallback_challenge_token" value="{{ fallback_challenge_token }}">
+          {% else %}
+          <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="login-submit">Sign in</button>
+      </form>
+      {% endif %}
+
+    </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function togglePasswordVisibility() {
+    const field = document.getElementById('id_password');
+    const icon = document.getElementById('toggle-icon');
+    if (field.type === 'password') {
+      field.type = 'text';
+      icon.textContent = '🙈';
+    } else {
+      field.type = 'password';
+      icon.textContent = '👁';
+    }
+  }
+</script>
 {% endblock %}
