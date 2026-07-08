@@ -22,4 +22,7 @@ urlpatterns = [
     path("documents/<uuid:document_id>/ask/clear/", views.document_conversation_clear, name="document-conversation-clear"),
     path("documents/<uuid:document_id>/ask/export.pdf", views.investigation_export_pdf, name="investigation-export-pdf"),
     path("documents/<uuid:document_id>/figures/", views.document_figures_page, name="document-figures-page"),
+    path("documents/<uuid:document_id>/outline/", views.document_outline_page, name="document-outline-page"),
+    path("documents/<uuid:document_id>/compliance/", views.compliance_query_page, name="compliance-query-page"),
+    path("documents/<uuid:document_id>/compliance/submit/", views.compliance_submit, name="compliance-submit"),
 ]

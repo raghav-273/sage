@@ -12,8 +12,6 @@ from __future__ import annotations
 import uuid
 import logging
 
-
-
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -32,18 +30,17 @@ from apps.conversation.services import ask_in_session, clear_session, get_or_cre
 
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
-from services.generation.generation_service import generate_answer
+from services.documents.clause_navigator import build_document_outline, flatten_for_template
+from services.generation.generation_service import generate_answer, ComplianceResult, generate_compliance_answer
 from services.generation.answer_rendering import render_answer_with_numbered_citations
 
-from .health import get_system_health
 from .login_security import (
-    challenge_required,
-    generate_challenge,
-    get_client_ip,
-    record_failed_attempt,
-    reset_failures,
-    verify_challenge,
+    challenge_required, generate_challenge, get_client_ip,
+    honeypot_triggered, is_locked_out, lockout_remaining_seconds,
+    record_failed_attempt, reset_failures, verify_challenge,
 )
+
+from .health import get_system_health
 
 from .turnstile import verify_turnstile
 from .rate_limit import is_rate_limited, record_request
@@ -297,25 +294,27 @@ def _processing_duration_display(document: Document) -> str | None:
 logger = logging.getLogger("apps.portal.views")
 
 class PortalLoginView(LoginView):
-    """
-    POST /login/
-
-    login_error_message is tracked via an explicit instance attribute
-    (_login_error_message), never via form.errors. form_valid()'s custom
-    failure paths (Turnstile rejected, Cloudflare unreachable, wrong
-    fallback answer) deliberately don't call form.add_error() — Django's
-    own "Please enter a correct username and password" applies only to
-    the plain-wrong-credentials case, which form_valid() never reaches at
-    all (Django's base view routes that straight to form_invalid() before
-    form_valid() runs). Gating on form.errors for the custom paths was
-    the actual bug here — it silently suppressed the message whenever it
-    was needed most.
-    """
-
     template_name = "portal/login.html"
+
+    def _log_attempt(
+        self,
+        request,
+        ip: str,
+        success: bool,
+        failure_reason: str = "",
+    ) -> None:
+        from .models import LoginAttempt
+        LoginAttempt.objects.create(
+            ip_address=ip,
+            username_attempted=request.POST.get("username", "")[:255],
+            success=success,
+            failure_reason=failure_reason,
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        ip = get_client_ip(self.request)
 
         custom_message = getattr(self, "_login_error_message", None)
         if custom_message:
@@ -323,44 +322,67 @@ class PortalLoginView(LoginView):
         elif self.request.method == "POST" and context["form"].errors:
             context["login_error_message"] = "Incorrect username or password."
 
-        ip_address = get_client_ip(self.request)
-        if challenge_required(ip_address):
-            context["challenge_required"] = True
-            context["turnstile_site_key"] = settings.TURNSTILE_SITE_KEY
-            context["show_fallback_challenge"] = getattr(self, "_show_fallback_challenge", False)
-            if context["show_fallback_challenge"]:
-                question, token = generate_challenge()
-                context["fallback_challenge_question"] = question
-                context["fallback_challenge_token"] = token
+        context["is_locked_out"] = is_locked_out(ip)
+        context["lockout_minutes"] = (lockout_remaining_seconds(ip) + 59) // 60
+
+        context["challenge_required"] = challenge_required(ip) and not context["is_locked_out"]
+        context["turnstile_site_key"] = settings.TURNSTILE_SITE_KEY
+        context["show_fallback_challenge"] = getattr(self, "_show_fallback_challenge", False)
+        if context["show_fallback_challenge"]:
+            question, token = generate_challenge()
+            context["fallback_challenge_question"] = question
+            context["fallback_challenge_token"] = token
+
         return context
 
     def form_valid(self, form):
-        ip_address = get_client_ip(self.request)
-        if challenge_required(ip_address):
+        ip = get_client_ip(self.request)
+
+        # Layer 1: IP lockout — hardest block, checked first
+        if is_locked_out(ip):
+            self._login_error_message = (
+                f"This IP address is temporarily locked. "
+                f"Try again in {(lockout_remaining_seconds(ip) + 59) // 60} minute(s)."
+            )
+            self._log_attempt(self.request, ip, False, "locked_out")
+            return self.form_invalid(form)
+
+        # Layer 2: Honeypot — silent rejection
+        if honeypot_triggered(self.request):
+            logger.warning("honeypot_triggered ip=%s", ip)
+            self._log_attempt(self.request, ip, False, "honeypot")
+            self._login_error_message = "Incorrect username or password."
+            return self.form_invalid(form)
+
+        # Layer 3: Turnstile / fallback challenge
+        if challenge_required(ip):
             fallback_answer = self.request.POST.get("fallback_challenge_answer", "")
 
             if fallback_answer:
                 fallback_token = self.request.POST.get("fallback_challenge_token", "")
                 if not verify_challenge(fallback_token, fallback_answer):
                     self._login_error_message = "Verification failed. Please try again."
+                    self._log_attempt(self.request, ip, False, "fallback_failed")
                     return self.form_invalid(form)
             else:
                 turnstile_token = self.request.POST.get("cf-turnstile-response", "")
 
                 if not turnstile_token:
-                    logger.info("turnstile_token_absent_offering_fallback ip=%s", ip_address)
+                    logger.info("turnstile_token_absent_offering_fallback ip=%s", ip)
                     self._show_fallback_challenge = True
                     self._login_error_message = "Please complete the verification below."
+                    self._log_attempt(self.request, ip, False, "turnstile_absent")
                     return self.form_invalid(form)
 
-                turnstile_result = verify_turnstile(turnstile_token, ip_address)
+                turnstile_result = verify_turnstile(turnstile_token, ip)
 
                 if turnstile_result is False:
                     self._login_error_message = "Verification failed. Please complete the security check."
+                    self._log_attempt(self.request, ip, False, "turnstile_rejected")
                     return self.form_invalid(form)
 
                 if turnstile_result is None:
-                    logger.warning("turnstile_unreachable_offering_fallback ip=%s", ip_address)
+                    logger.warning("turnstile_unreachable_offering_fallback ip=%s", ip)
                     self._show_fallback_challenge = True
                     self._login_error_message = (
                         "Our verification service is temporarily unavailable. "
@@ -368,12 +390,22 @@ class PortalLoginView(LoginView):
                     )
                     return self.form_invalid(form)
 
-        reset_failures(ip_address)
+        # All layers passed
+        self._log_attempt(self.request, ip, True)
+        reset_failures(ip)
         return super().form_valid(form)
 
     def form_invalid(self, form):
-        ip_address = get_client_ip(self.request)
-        record_failed_attempt(ip_address)
+        ip = get_client_ip(self.request)
+        # Only record_failed_attempt for bad credentials (not for security-layer rejections
+        # which logged their own attempts above).
+        if not getattr(self, "_login_error_message", None):
+            self._login_error_message = "Incorrect username or password."
+            record_failed_attempt(ip)
+            self._log_attempt(self.request, ip, False, "bad_credentials")
+        else:
+            # Security-layer rejection — still increment failure count.
+            record_failed_attempt(ip)
         return super().form_invalid(form)
 
 
@@ -402,12 +434,11 @@ def document_detail_page(request: HttpRequest, document_id: uuid.UUID) -> HttpRe
     text_chunk_count = ContentChunk.objects.filter(
         document=document
     ).exclude(chunk_type=ContentChunk.ChunkType.CAPTION).count()
-    context = {
+    return render(request, "portal/document_detail.html", {
         "document": document,
         "processing_duration": _processing_duration_display(document),
         "text_chunk_count": text_chunk_count,
-    }
-    return render(request, "portal/document_detail.html", context)
+    })
 
 
 @login_required
@@ -475,3 +506,65 @@ def custom_404(request: HttpRequest, exception: Exception | None = None) -> Http
 
 def custom_500(request: HttpRequest) -> HttpResponse:
     return render(request, "errors/500.html", status=500)
+
+
+@login_required
+def document_outline_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    GET /documents/<uuid>/outline/
+
+    Clause Navigator: hierarchical outline of sections and clauses extracted
+    from section_identifier values already stored on ContentChunk records.
+    """
+    document = get_object_or_404(Document, id=document_id)
+    outline = build_document_outline(document_id)
+    flat_rows = flatten_for_template(outline.root_nodes)
+
+    return render(request, "portal/document_outline.html", {
+        "document": document,
+        "outline": outline,
+        "flat_rows": flat_rows,
+    })
+
+
+@login_required
+def compliance_query_page(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """GET /documents/<uuid>/compliance/"""
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    return render(request, "portal/compliance_query.html", {"document": document})
+
+
+@login_required
+def compliance_submit(request: HttpRequest, document_id: uuid.UUID) -> HttpResponse:
+    """
+    POST /documents/<uuid>/compliance/submit/ — HTMX partial.
+
+    Shares the portal rate limiter with the query and conversation pages —
+    all three ultimately call Gemini; separate budgets per path would
+    silently exceed the provider's actual ceiling.
+    """
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    document = get_object_or_404(Document, id=document_id, status=Document.Status.READY)
+    requirement = request.POST.get("requirement", "").strip()
+
+    if not requirement:
+        return render(request, "portal/_compliance_result.html",
+                      {"error": "Please enter a requirement to verify."})
+
+    if is_rate_limited(request.user.id):
+        return render(request, "portal/_compliance_result.html",
+                      {"error": "Too many requests. Please wait a moment and try again."})
+    record_request(request.user.id)
+
+    try:
+        result = generate_compliance_answer(
+            requirement=requirement,
+            document_ids=[document.id],
+        )
+    except (RetrievalError, GenerationError) as exc:
+        return render(request, "portal/_compliance_result.html", {"error": str(exc)})
+
+    return render(request, "portal/_compliance_result.html",
+                  {"result": result, "document": document})
