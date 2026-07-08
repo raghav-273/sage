@@ -1,0 +1,47 @@
+{% extends "portal/base.html" %}
+{% block title %}Compliance Check — {{ document.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ document.name }}</h1>
+    <p class="small text-muted mb-0">Compliance Verification</p>
+  </div>
+  <a href="{% url 'document-detail-page' document.id %}" class="btn btn-sm btn-outline-secondary">Back</a>
+</div>
+
+<div class="sage-card p-4 mb-4">
+  <h2 class="h6 text-uppercase text-muted mb-1 letter-spacing">What this does</h2>
+  <p class="small text-muted mb-0">
+    Enter a requirement, design specification, or technical statement.
+    SAGE retrieves the relevant clauses from this document and determines
+    whether your input is <strong>COMPLIANT</strong>, <strong>NON-COMPLIANT</strong>,
+    or whether there is <strong>INSUFFICIENT EVIDENCE</strong> to make a determination.
+    Every verdict is traceable to specific clauses.
+  </p>
+</div>
+
+<div class="sage-card p-4">
+  <form hx-post="{% url 'compliance-submit' document.id %}"
+        hx-target="#compliance-result"
+        hx-swap="innerHTML"
+        hx-indicator="#compliance-spinner">
+    {% csrf_token %}
+    <div class="mb-3">
+      <label for="id_requirement" class="form-label fw-semibold">Requirement or design statement</label>
+      <textarea name="requirement" id="id_requirement" class="form-control" rows="4" required
+                placeholder="e.g. The proposed rail joint design uses fish plates with a tensile strength of 680 MPa at ambient temperature."></textarea>
+      <div class="form-text">
+        State the requirement or design choice to be verified. Be specific — include
+        values, conditions, and any applicable clause references you are aware of.
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      Verify compliance
+      <span id="compliance-spinner" class="spinner-border spinner-border-sm htmx-indicator ms-2"></span>
+    </button>
+  </form>
+</div>
+
+<div id="compliance-result" class="mt-4"></div>
+{% endblock %}

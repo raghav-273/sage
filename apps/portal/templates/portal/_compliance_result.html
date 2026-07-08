@@ -1,0 +1,56 @@
+{% load static %}
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% elif result %}
+<div class="sage-card p-4">
+
+  {# Verdict header #}
+  <div class="compliance-verdict-header {{ result.verdict_class }}">
+    <span class="compliance-verdict-icon">{{ result.verdict_icon }}</span>
+    <div>
+      <div class="compliance-verdict-label">{{ result.verdict }}</div>
+      <div class="compliance-requirement-echo small">{{ result.requirement|truncatechars:120 }}</div>
+    </div>
+  </div>
+
+  {# Reasoning #}
+  <div class="mt-3">
+    <h2 class="h6 text-uppercase text-muted letter-spacing mb-2">Analysis</h2>
+    <p class="mb-0">{{ result.rendered_answer }}</p>
+  </div>
+
+  {# Citations #}
+  {% if result.citations %}
+  <div class="mt-3 pt-3 border-top">
+    <h2 class="h6 text-uppercase text-muted letter-spacing mb-2">
+      Supporting clauses
+      <span class="text-muted fw-normal" style="text-transform:none; letter-spacing:0; font-size:0.7rem;">
+        — click to inspect
+      </span>
+    </h2>
+    <ol class="citation-list mb-0">
+      {% for citation in result.citations %}
+      <li class="citation-list-item"
+          hx-get="{% url 'chunk-context-partial' citation.chunk_id %}"
+          hx-target="#citation-panel-body"
+          hx-swap="innerHTML"
+          title="Click to inspect source in context">
+        <strong class="font-monospace small">
+          Page {{ citation.page_number }}{% if citation.section_identifier %}, &sect; {{ citation.section_identifier }}{% endif %}
+        </strong>
+        — {{ citation.excerpt|truncatechars:120 }}
+        <span class="text-muted small">({{ citation.confidence_score|floatformat:2 }} · {{ citation.retrieval_method }})</span>
+        <span class="citation-inspect-hint">Inspect &rarr;</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% elif result.retrieved_chunk_count > 0 %}
+  <div class="mt-3 small text-muted">
+    Retrieved {{ result.retrieved_chunk_count }} candidate clause(s) but no citation could be validated.
+    Treat this verdict with caution.
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
