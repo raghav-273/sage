@@ -1,104 +1,155 @@
 # apps/portal/login_security.py
 """
-Lightweight, dependency-free login protection: per-IP failure tracking
-via Django's cache framework, and a stateless, signed plain-text
-verification challenge — no new package, no new database table.
+Login protection: per-IP failure tracking, adaptive Turnstile challenge,
+temporary IP lockout, and honeypot detection.
 
-Failure tracking uses whatever CACHES backend is configured (the default
-LocMemCache is correct for this project's single-instance deployment).
-
-The challenge itself never touches the database: the expected answer is
-embedded in a cryptographically signed, time-limited token (via
-django.core.signing.TimestampSigner) carried in a hidden form field.
-Verification is just "unsign and compare" — nothing to expire via a
-cron job, nothing to clean up.
+All state lives in Django's cache (backed by Redis in production —
+required for correctness when running multiple gunicorn workers).
 """
 
 from __future__ import annotations
 
+import logging
 import random
+import time
 
 from django.conf import settings
 from django.core.cache import cache
 from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
 
+logger = logging.getLogger("apps.portal.login_security")
+
 _FAILURE_CACHE_PREFIX = "login_failures"
+_LOCKOUT_CACHE_PREFIX = "login_lockout"
 _SIGNER_SALT = "apps.portal.login_security.challenge"
+_VERIFICATION_WORDS = ["SAGE", "RAILWAY", "VERIFY", "SECURE", "ENGINE", "STANDARD"]
 
 _signer = TimestampSigner(salt=_SIGNER_SALT)
 
 
-def _failure_cache_key(ip_address: str) -> str:
-    return f"{_FAILURE_CACHE_PREFIX}:{ip_address}"
-
+# ── Configuration helpers ────────────────────────────────────────────
 
 def _failure_window_seconds() -> int:
     return getattr(settings, "LOGIN_CHALLENGE_WINDOW_SECONDS", 15 * 60)
 
 
 def _failure_threshold() -> int:
-    return getattr(settings, "LOGIN_CHALLENGE_FAILURE_THRESHOLD", 5)
+    return getattr(settings, "LOGIN_CHALLENGE_FAILURE_THRESHOLD", 0)
 
 
 def _token_max_age() -> int:
     return getattr(settings, "LOGIN_CHALLENGE_TOKEN_MAX_AGE", 5 * 60)
 
 
-def get_client_ip(request) -> str:
-    """
-    Returns the client's IP address.
+def _lockout_threshold() -> int:
+    return getattr(settings, "LOGIN_LOCKOUT_THRESHOLD", 10)
 
-    Reads REMOTE_ADDR directly — correct for this project's single-instance
-    Docker deployment with no reverse proxy in front of it. If a reverse
-    proxy is ever added (deliberately deferred per the architecture), this
-    would need to respect X-Forwarded-For instead — flagging that now so
-    it isn't a silent gap later.
-    """
+
+def _lockout_duration_seconds() -> int:
+    return getattr(settings, "LOGIN_LOCKOUT_DURATION_SECONDS", 15 * 60)
+
+
+# ── IP helpers ───────────────────────────────────────────────────────
+
+def get_client_ip(request) -> str:
     return request.META.get("REMOTE_ADDR", "unknown")
 
 
-def record_failed_attempt(ip_address: str) -> int:
-    """Increments and returns the failure count for this IP, within the window."""
-    key = _failure_cache_key(ip_address)
-    failures = cache.get(key, 0) + 1
-    cache.set(key, failures, _failure_window_seconds())
-    return failures
+# ── Failure tracking ─────────────────────────────────────────────────
+
+def _failure_cache_key(ip: str) -> str:
+    return f"{_FAILURE_CACHE_PREFIX}:{ip}"
 
 
-def get_failure_count(ip_address: str) -> int:
-    return cache.get(_failure_cache_key(ip_address), 0)
+def get_failure_count(ip: str) -> int:
+    return cache.get(_failure_cache_key(ip), 0)
 
 
-def reset_failures(ip_address: str) -> None:
-    cache.delete(_failure_cache_key(ip_address))
+def record_failed_attempt(ip: str) -> int:
+    """Increments failure count. Returns the new total."""
+    key = _failure_cache_key(ip)
+    count = cache.get(key, 0) + 1
+    cache.set(key, count, _failure_window_seconds())
+
+    # Trigger a lockout once the harder threshold is crossed.
+    if count >= _lockout_threshold():
+        _set_lockout(ip)
+
+    return count
 
 
-def challenge_required(ip_address: str) -> bool:
-    return get_failure_count(ip_address) >= _failure_threshold()
+def reset_failures(ip: str) -> None:
+    cache.delete(_failure_cache_key(ip))
+    cache.delete(_lockout_cache_key(ip))
 
+
+# ── Lockout ──────────────────────────────────────────────────────────
+
+def _lockout_cache_key(ip: str) -> str:
+    return f"{_LOCKOUT_CACHE_PREFIX}:{ip}"
+
+
+def _set_lockout(ip: str) -> None:
+    duration = _lockout_duration_seconds()
+    expiry_at = time.time() + duration
+    cache.set(_lockout_cache_key(ip), True, duration)
+    # Store expiry timestamp separately — Django's native RedisCache has
+    # no .ttl() method; computing remaining time from a stored timestamp
+    # works on any cache backend without extra dependencies.
+    cache.set(f"{_lockout_cache_key(ip)}:expiry", expiry_at, duration)
+    logger.warning("login_lockout_set ip=%s duration_seconds=%d", ip, duration)
+
+
+def lockout_remaining_seconds(ip: str) -> int:
+    """Returns approximate remaining lockout seconds. 0 if not locked out."""
+    expiry_at = cache.get(f"{_lockout_cache_key(ip)}:expiry")
+    if expiry_at is None:
+        return 0
+    return max(0, int(expiry_at - time.time()))
+
+def is_locked_out(ip: str) -> bool:
+    return bool(cache.get(_lockout_cache_key(ip)))
+
+
+
+# ── Challenge threshold ──────────────────────────────────────────────
+
+def challenge_required(ip: str) -> bool:
+    """True when Turnstile/fallback challenge is needed (always true at threshold=0)."""
+    return get_failure_count(ip) >= _failure_threshold()
+
+
+# ── Fallback plain-text challenge ────────────────────────────────────
 
 def generate_challenge() -> tuple[str, str]:
-    """
-    Returns (question_text, signed_token).
-
-    A simple, non-standard arithmetic question — not adversarially
-    hardened against a targeted attacker who studies this exact form,
-    but a proportionate deterrent against generic automated login
-    scripts, which is the actual threat model for a single-operator
-    system. This is a deliberate trade-off, not an oversight.
-    """
-    a, b = random.randint(2, 9), random.randint(2, 9)
-    question = f"What is {a} + {b}?"
-    token = _signer.sign(str(a + b))
-    return question, token
+    """Returns (question_text, signed_token). Randomised between two types."""
+    challenge_type = random.choice(("arithmetic", "word"))
+    if challenge_type == "arithmetic":
+        a, b = random.randint(2, 9), random.randint(2, 9)
+        question = f"What is {a} + {b}?"
+        answer = str(a + b)
+    else:
+        word = random.choice(_VERIFICATION_WORDS)
+        question = f'Type the following word exactly: "{word}"'
+        answer = word
+    return question, _signer.sign(answer)
 
 
-def verify_challenge(token: str, submitted_answer: str) -> bool:
-    """Verifies a submitted answer against a signed challenge token."""
-    if not token or not submitted_answer:
+def verify_challenge(token: str, submitted: str) -> bool:
+    if not token or not submitted:
         return False
     try:
-        expected_answer = _signer.unsign(token, max_age=_token_max_age())
+        expected = _signer.unsign(token, max_age=_token_max_age())
     except (BadSignature, SignatureExpired):
         return False
-    return submitted_answer.strip() == expected_answer
+    return submitted.strip().lower() == expected.strip().lower()
+
+
+# ── Honeypot ─────────────────────────────────────────────────────────
+
+def honeypot_triggered(request) -> bool:
+    """
+    Returns True if the hidden honeypot field was filled in.
+    Bots commonly fill every visible text field; humans never see this one.
+    """
+    return bool(request.POST.get("contact_url", "").strip())
