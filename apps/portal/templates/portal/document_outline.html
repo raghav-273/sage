@@ -1,0 +1,117 @@
+{% extends "portal/base.html" %}
+{% block title %}Clause Navigator — {{ document.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ document.name }}</h1>
+    <p class="small text-muted mb-0">Clause Navigator</p>
+  </div>
+  <a href="{% url 'document-detail-page' document.id %}" class="btn btn-sm btn-outline-secondary">Back</a>
+</div>
+
+{% if outline.has_clauses %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-value">{{ outline.total_clauses }}</div><div class="stat-label">Clauses indexed</div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card"><div class="stat-value">{{ outline.total_citations }}</div><div class="stat-label">Times cited in investigations</div></div>
+  </div>
+</div>
+
+<div class="sage-card">
+  <div class="outline-toolbar px-3 py-2 border-bottom d-flex gap-2">
+    <button class="btn btn-xs btn-outline-secondary" onclick="expandAll()">Expand all</button>
+    <button class="btn btn-xs btn-outline-secondary" onclick="collapseAll()">Collapse all</button>
+  </div>
+  <div class="outline-tree" id="outline-tree">
+    {% for row in flat_rows %}
+    {% with node=row.node %}
+    <div class="outline-row {% if node.depth == 0 %}outline-row-top{% endif %}"
+         id="{{ node.css_id }}"
+         style="padding-left: calc(1rem + {{ row.indent_rem }}rem);"
+         data-depth="{{ node.depth }}">
+      <div class="d-flex align-items-start gap-2 py-2 pe-3">
+        {% if row.has_children %}
+        <button class="outline-toggle" data-target="{{ node.css_id }}-children"
+                onclick="toggleSection(this)" aria-expanded="true">&#9660;</button>
+        {% else %}
+        <span class="outline-toggle-spacer"></span>
+        {% endif %}
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="outline-identifier font-monospace">{{ node.identifier }}</span>
+            {% if node.citation_count > 0 %}
+            <span class="badge bg-primary" style="font-size:0.65rem;"
+                  title="{{ node.citation_count }} citation{{ node.citation_count|pluralize }} across all investigations">
+              &#128269; {{ node.citation_count }}
+            </span>
+            {% endif %}
+            <span class="text-muted small">{{ node.chunk_count }} chunk{{ node.chunk_count|pluralize }}</span>
+          </div>
+          {% if node.first_chunk_excerpt %}
+          <p class="outline-excerpt small text-muted mt-1 mb-0">{{ node.first_chunk_excerpt|truncatechars:140 }}</p>
+          {% endif %}
+        </div>
+        {% if node.first_chunk_id %}
+        <button class="btn btn-xs btn-outline-secondary outline-inspect"
+                hx-get="{% url 'chunk-context-partial' node.first_chunk_id %}"
+                hx-target="#citation-panel-body"
+                hx-swap="innerHTML"
+                title="Inspect source in context panel">
+          Inspect
+        </button>
+        {% endif %}
+      </div>
+      {% if row.has_children %}
+      <div id="{{ node.css_id }}-children" class="outline-children"></div>
+      {% endif %}
+    </div>
+    {% endwith %}
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+<div class="sage-card-empty text-center text-muted py-5">
+  <p class="mb-1 fw-semibold">No structured clause identifiers found.</p>
+  <p class="small mb-0">
+    This document's text chunks do not contain recognisable numbered clause
+    identifiers (e.g. "4.3.2"). The document may lack standard section
+    numbering or may not have been chunked with heading detection enabled.
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function toggleSection(btn) {
+  const childrenId = btn.dataset.target;
+  const childrenEl = document.getElementById(childrenId);
+  const expanded = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', String(!expanded));
+  btn.textContent = expanded ? '▶' : '▼';
+  if (childrenEl) {
+    childrenEl.style.display = expanded ? 'none' : '';
+  }
+}
+function expandAll() {
+  document.querySelectorAll('.outline-toggle').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'true');
+    btn.textContent = '▼';
+    const el = document.getElementById(btn.dataset.target);
+    if (el) el.style.display = '';
+  });
+}
+function collapseAll() {
+  document.querySelectorAll('.outline-toggle').forEach(btn => {
+    btn.setAttribute('aria-expanded', 'false');
+    btn.textContent = '▶';
+    const el = document.getElementById(btn.dataset.target);
+    if (el) el.style.display = 'none';
+  });
+}
+</script>
+{% endblock %}

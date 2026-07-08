@@ -22,6 +22,20 @@
     </a>
   </div>
   <div class="col-12 col-md-4">
+    <a href="{% url 'compliance-query-page' document.id %}" class="action-tile action-tile-secondary">
+      <div class="action-tile-icon">&#9745;</div>
+      <div class="action-tile-label">Compliance Check</div>
+      <div class="action-tile-sub">Verify a requirement against this document</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
+    <a href="{% url 'document-outline-page' document.id %}" class="action-tile action-tile-secondary">
+      <div class="action-tile-icon">&#9776;</div>
+      <div class="action-tile-label">Clause Navigator</div>
+      <div class="action-tile-sub">Browse structured clause hierarchy</div>
+    </a>
+  </div>
+  <div class="col-12 col-md-4">
     <a href="{% url 'document-figures-page' document.id %}" class="action-tile action-tile-secondary">
       <div class="action-tile-icon">&#128444;</div>
       <div class="action-tile-label">Figure Library</div>
@@ -30,7 +44,7 @@
   </div>
   <div class="col-12 col-md-4">
     <a href="{% url 'query-page' %}" class="action-tile action-tile-secondary">
-      <div class="action-tile-icon">&#9776;</div>
+      <div class="action-tile-icon">&#128196;</div>
       <div class="action-tile-label">Cross-Document Query</div>
       <div class="action-tile-sub">Search across the full library</div>
     </a>
