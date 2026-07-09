@@ -1,0 +1,112 @@
+{% extends "portal/base.html" %}
+{% block title %}Compare Documents{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h1 class="h4 mb-0">Cross-Document Comparison</h1>
+    <p class="small text-muted mb-0">
+      Compare how two documents treat the same requirement, clause, or technical topic.
+    </p>
+  </div>
+</div>
+
+{% if ready_documents.count < 2 %}
+<div class="sage-card-empty text-center text-muted py-5">
+  <p class="mb-1 fw-semibold">At least two READY documents are required.</p>
+  <a href="{% url 'document-upload-page' %}" class="btn btn-primary btn-sm mt-2">Upload a document</a>
+</div>
+{% else %}
+
+<div class="sage-card p-4 mb-4">
+  <h2 class="h6 text-uppercase text-muted mb-3 letter-spacing">What this does</h2>
+  <p class="small text-muted mb-0">
+    Select two documents and enter a topic or requirement. SAGE retrieves the most
+    relevant clauses from each document independently, then identifies
+    <strong>agreements</strong>, <strong>conflicts</strong>, and
+    <strong>content exclusive to each document</strong> — with citations traceable
+    to specific pages and clauses.
+  </p>
+</div>
+
+<div class="sage-card p-4">
+  <form hx-post="{% url 'comparison-submit' %}"
+        hx-target="#comparison-result"
+        hx-swap="innerHTML"
+        hx-indicator="#comparison-spinner"
+        id="comparison-form">
+    {% csrf_token %}
+
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-6">
+        <label for="id_document_a" class="form-label fw-semibold">
+          <span class="comparison-doc-label comparison-doc-a">Document A</span>
+        </label>
+        <select name="document_a_id" id="id_document_a" class="form-select" required
+                onchange="validateDocumentSelection()">
+          <option value="">Select a document…</option>
+          {% for doc in ready_documents %}
+          <option value="{{ doc.id }}"
+                  {% if preselect_a == doc.id|stringformat:"s" %}selected{% endif %}>
+            {{ doc.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12 col-md-6">
+        <label for="id_document_b" class="form-label fw-semibold">
+          <span class="comparison-doc-label comparison-doc-b">Document B</span>
+        </label>
+        <select name="document_b_id" id="id_document_b" class="form-select" required
+                onchange="validateDocumentSelection()">
+          <option value="">Select a document…</option>
+          {% for doc in ready_documents %}
+          <option value="{{ doc.id }}"
+                  {% if preselect_b == doc.id|stringformat:"s" %}selected{% endif %}>
+            {{ doc.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div id="same-document-warning"
+         class="alert alert-warning py-2 small mb-3"
+         style="display:none;">
+      Both selectors point to the same document. Please select two different documents.
+    </div>
+
+    <div class="mb-3">
+      <label for="id_query" class="form-label fw-semibold">Comparison topic or requirement</label>
+      <textarea name="query" id="id_query" class="form-control" rows="3" required
+                placeholder="e.g. Minimum tensile strength requirements for rail joints"></textarea>
+      <div class="form-text">
+        Describe the engineering topic you want to compare across both documents.
+        Be specific — clause references, measured values, and conditions all help.
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" id="compare-btn">
+      Run comparison
+      <span id="comparison-spinner" class="spinner-border spinner-border-sm htmx-indicator ms-2"></span>
+    </button>
+  </form>
+</div>
+
+<div id="comparison-result" class="mt-4"></div>
+{% endif %}
+
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function validateDocumentSelection() {
+  const a = document.getElementById('id_document_a').value;
+  const b = document.getElementById('id_document_b').value;
+  const warning = document.getElementById('same-document-warning');
+  const btn = document.getElementById('compare-btn');
+  const same = a && b && a === b;
+  warning.style.display = same ? '' : 'none';
+  btn.disabled = same;
+}
+</script>
+{% endblock %}

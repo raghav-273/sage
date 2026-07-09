@@ -1,0 +1,74 @@
+{% load static portal_extras %}
+{% if error %}
+<div class="alert alert-warning">{{ error }}</div>
+{% elif result %}
+
+<div class="comparison-result-header mb-4">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <span class="comparison-doc-label comparison-doc-a">A: {{ result.document_a_name }}</span>
+    <span class="comparison-vs">vs</span>
+    <span class="comparison-doc-label comparison-doc-b">B: {{ result.document_b_name }}</span>
+  </div>
+  <p class="small text-muted mt-1 mb-0">
+    Retrieved {{ result.retrieved_count_a }} clause{{ result.retrieved_count_a|pluralize }} from A,
+    {{ result.retrieved_count_b }} clause{{ result.retrieved_count_b|pluralize }} from B.
+    {% if not result.has_valid_citations %}
+    <span class="text-warning">⚠ No citations could be validated — treat this comparison with caution.</span>
+    {% endif %}
+  </p>
+</div>
+
+{# Structured comparison sections #}
+{% for section_title, section_content in result.sections.items %}
+<div class="comparison-section comparison-section-{{ section_title|lower|slugify }} mb-3">
+  <div class="comparison-section-header">
+    {% if "Agreement" in section_title %}&#9989;
+    {% elif "Conflict" in section_title %}&#9888;
+    {% elif "Only in Document A" in section_title or "Only in" in section_title and "A" in section_title %}&#9646;
+    {% else %}&#9647;
+    {% endif %}
+    {{ section_title }}
+  </div>
+  <div class="comparison-section-body">
+    {{ section_content|linebreaks }}
+  </div>
+</div>
+{% endfor %}
+
+{# Citations #}
+{% if result.citations %}
+<div class="sage-card p-3 mt-4">
+  <h2 class="h6 text-uppercase text-muted letter-spacing mb-2">
+    References
+    <span class="text-muted fw-normal" style="text-transform:none; letter-spacing:0; font-size:0.7rem;">
+      — click to inspect
+    </span>
+  </h2>
+  <ol class="citation-list mb-0">
+    {% for citation in result.citations %}
+    <li class="citation-list-item"
+        hx-get="{% url 'chunk-context-partial' citation.chunk_id %}"
+        hx-target="#citation-panel-body"
+        hx-swap="innerHTML"
+        title="Click to inspect source in context">
+
+      {# Document provenance badge #}
+      {% if citation.document_id == result.document_a_id %}
+      <span class="badge comparison-doc-a-badge me-1">A</span>
+      {% else %}
+      <span class="badge comparison-doc-b-badge me-1">B</span>
+      {% endif %}
+
+      <strong class="font-monospace small">
+        Page {{ citation.page_number }}{% if citation.section_identifier %}, &sect; {{ citation.section_identifier }}{% endif %}
+      </strong>
+      — {{ citation.excerpt|truncatechars:110 }}
+      <span class="text-muted small">({{ citation.confidence_score|floatformat:2 }} · {{ citation.retrieval_method }})</span>
+      <span class="citation-inspect-hint">Inspect &rarr;</span>
+    </li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+
+{% endif %}
