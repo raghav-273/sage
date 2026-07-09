@@ -13,6 +13,8 @@ urlpatterns = [
     path("query/", views.query_page, name="query-page"),
     path("query/submit/", views.query_submit, name="query-submit"),
     
+    path("comparison/", views.comparison_page, name="comparison-page"),
+    path("comparison/submit/", views.comparison_submit, name="comparison-submit"),
     path("chunks/<uuid:chunk_id>/context/", views.chunk_context_partial, name="chunk-context-partial"),
     
     path("documents/<uuid:document_id>/", views.document_detail_page, name="document-detail-page"),
@@ -25,4 +27,5 @@ urlpatterns = [
     path("documents/<uuid:document_id>/outline/", views.document_outline_page, name="document-outline-page"),
     path("documents/<uuid:document_id>/compliance/", views.compliance_query_page, name="compliance-query-page"),
     path("documents/<uuid:document_id>/compliance/submit/", views.compliance_submit, name="compliance-submit"),
+    
 ]

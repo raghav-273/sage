@@ -31,14 +31,18 @@ from apps.conversation.services import ask_in_session, clear_session, get_or_cre
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
 from services.documents.clause_navigator import build_document_outline, flatten_for_template
-from services.generation.generation_service import generate_answer, ComplianceResult, generate_compliance_answer
+from services.generation.generation_service import generate_answer, ComplianceResult, generate_compliance_answer, ComparisonResult, generate_comparison_answer
 from services.generation.answer_rendering import render_answer_with_numbered_citations
+
 
 from .login_security import (
     challenge_required, generate_challenge, get_client_ip,
     honeypot_triggered, is_locked_out, lockout_remaining_seconds,
     record_failed_attempt, reset_failures, verify_challenge,
 )
+
+
+
 
 from .health import get_system_health
 
@@ -568,3 +572,73 @@ def compliance_submit(request: HttpRequest, document_id: uuid.UUID) -> HttpRespo
 
     return render(request, "portal/_compliance_result.html",
                   {"result": result, "document": document})
+    
+
+@login_required
+def comparison_page(request: HttpRequest) -> HttpResponse:
+    """
+    GET /comparison/
+
+    Cross-document comparison entry point. Accepts ?document_a=<uuid> and
+    ?document_b=<uuid> to pre-select documents when navigating from a
+    document detail page.
+    """
+    ready_documents = Document.objects.filter(
+        status=Document.Status.READY
+    ).order_by("name")
+
+    return render(request, "portal/comparison.html", {
+        "ready_documents": ready_documents,
+        "preselect_a": request.GET.get("document_a", ""),
+        "preselect_b": request.GET.get("document_b", ""),
+    })
+
+
+@login_required
+def comparison_submit(request: HttpRequest) -> HttpResponse:
+    """POST /comparison/submit/ — HTMX partial for comparison results."""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+
+    query = request.POST.get("query", "").strip()
+    doc_a_str = request.POST.get("document_a_id", "").strip()
+    doc_b_str = request.POST.get("document_b_id", "").strip()
+
+    if not query:
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "Please enter a comparison query."})
+
+    if not doc_a_str or not doc_b_str:
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "Please select both documents to compare."})
+
+    try:
+        doc_a_id = uuid.UUID(doc_a_str)
+        doc_b_id = uuid.UUID(doc_b_str)
+    except ValueError:
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "Invalid document selection."})
+
+    if doc_a_id == doc_b_id:
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "Please select two different documents."})
+
+    if is_rate_limited(request.user.id):
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "Too many requests. Please wait a moment and try again."})
+    record_request(request.user.id)
+
+    try:
+        result = generate_comparison_answer(
+            query=query,
+            document_a_id=doc_a_id,
+            document_b_id=doc_b_id,
+        )
+    except (RetrievalError, GenerationError) as exc:
+        return render(request, "portal/_comparison_result.html", {"error": str(exc)})
+    except Exception as exc:
+        logger.error("comparison_submit_error query=%r error=%s", query, exc)
+        return render(request, "portal/_comparison_result.html",
+                      {"error": "An unexpected error occurred. Please try again."})
+
+    return render(request, "portal/_comparison_result.html", {"result": result})
