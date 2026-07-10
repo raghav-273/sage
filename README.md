@@ -288,3 +288,18 @@ This repository is intended for educational, research, and engineering demonstra
 **Standards and Guidelines Engine**
 
 *Engineering Knowledge Platform built for trustworthy technical document research.*
+
+---
+
+## SAGE 2.0 
+### introduces a significantly enhanced engineering knowledge platform with:
+
+- Clause navigation and history
+- Compliance analysis improvements
+- Document outline and navigation enhancements
+- Comparison workflows
+- Improved generation pipeline and prompt engineering
+- Updated embedding configuration
+- Authentication and portal UI refinements
+- Expanded REST API documentation
+- Comprehensive integration and unit test coverage
