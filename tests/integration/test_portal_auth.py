@@ -20,8 +20,15 @@ from django.test import TestCase, override_settings
 
 from apps.portal.login_security import generate_challenge
 
-
+@override_settings(LOGIN_CHALLENGE_FAILURE_THRESHOLD=5)
 class PortalAuthTests(TestCase):
+    """
+    Tests for basic login/logout/redirect behaviour.
+    Threshold pinned to 5 so these tests exercise the normal login path
+    (no challenge required for a fresh IP) regardless of the .env value
+    (currently 0 — "always challenge").
+    """
+       
     def setUp(self) -> None:
         # Same reasoning as AdaptiveLoginVerificationTests: failure counts
         # live in the cache, not the DB, so TestCase's transaction rollback
@@ -66,7 +73,7 @@ class PortalAuthTests(TestCase):
 
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
 
-
+@override_settings(LOGIN_CHALLENGE_FAILURE_THRESHOLD=5)
 class ApiRequiresAuthenticationTests(TestCase):
     """Confirms the global IsAuthenticated change actually took effect."""
     def setUp(self) -> None:
@@ -218,3 +225,60 @@ class AdaptiveLoginVerificationTests(TestCase):
 
         response = self.client.get(reverse("login"))
         self.assertNotContains(response, "cf-turnstile")
+         
+    @override_settings(LOGIN_LOCKOUT_THRESHOLD=3, LOGIN_LOCKOUT_DURATION_SECONDS=60)
+    def test_ip_lockout_triggers_after_threshold(self) -> None:
+        """After LOGIN_LOCKOUT_THRESHOLD failures, hard-lock the IP."""
+        for _ in range(3):
+            self.client.post(reverse("login"), {"username": "reviewer", "password": "wrong"})
+
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, "temporarily suspended")
+        self.assertNotContains(response, "id_username")  # form hidden when locked
+
+    @override_settings(LOGIN_LOCKOUT_THRESHOLD=3)
+    def test_locked_out_ip_cannot_login_with_correct_credentials(self) -> None:
+        """Hard lockout blocks even correct credentials."""
+        for _ in range(3):
+            self.client.post(reverse("login"), {"username": "reviewer", "password": "wrong"})
+
+        response = self.client.post(
+            reverse("login"),
+            {"username": "reviewer", "password": "test-pass-123"},
+        )
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
+        # Still redirected to login after lockout — not dashboard
+        self.assertNotEqual(response.status_code, 302)
+
+    def test_honeypot_triggers_rejection(self) -> None:
+        """A filled honeypot field is rejected as a bot attempt."""
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": "reviewer",
+                "password": "test-pass-123",
+                "contact_url": "http://spam.example.com",  # honeypot filled
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 302)
+
+    def test_login_attempt_recorded_on_failure(self) -> None:
+        from apps.portal.models import LoginAttempt
+        self.client.post(
+            reverse("login"), {"username": "reviewer", "password": "wrong-password"}
+        )
+        self.assertTrue(LoginAttempt.objects.filter(success=False).exists())
+
+    @mock.patch("apps.portal.views.verify_turnstile")
+    def test_login_attempt_recorded_on_success(self, mock_verify) -> None:
+        from apps.portal.models import LoginAttempt
+        mock_verify.return_value = True
+        self.client.post(
+            reverse("login"),
+            {
+                "username": "reviewer", "password": "test-pass-123",
+                "cf-turnstile-response": "token",
+            },
+        )
+        self.assertTrue(LoginAttempt.objects.filter(success=True).exists())
