@@ -30,7 +30,7 @@ from apps.conversation.services import ask_in_session, clear_session, get_or_cre
 
 from services.llm_client.generation_base import GenerationError
 from services.retrieval.retrieval_service import RetrievalError
-from services.documents.clause_navigator import build_document_outline, flatten_for_template
+from services.documents.clause_navigator import build_document_outline, flatten_for_template, get_clause_investigation_history
 from services.generation.generation_service import generate_answer, ComplianceResult, generate_compliance_answer, ComparisonResult, generate_comparison_answer
 from services.generation.answer_rendering import render_answer_with_numbered_citations
 
@@ -642,3 +642,26 @@ def comparison_submit(request: HttpRequest) -> HttpResponse:
                       {"error": "An unexpected error occurred. Please try again."})
 
     return render(request, "portal/_comparison_result.html", {"result": result})
+
+@login_required
+def clause_investigation_history_partial(
+    request: HttpRequest,
+    document_id: uuid.UUID,
+    section_identifier: str,
+) -> HttpResponse:
+    """
+    GET /documents/<uuid>/clause/<str:section_identifier>/history/
+
+    HTMX partial — returns investigation history for one clause.
+    section_identifier arrives URL-encoded (e.g. "4.3.2"); decode it.
+    """
+    import urllib.parse
+    section_identifier = urllib.parse.unquote(section_identifier)
+    document = get_object_or_404(Document, id=document_id)
+    history = get_clause_investigation_history(document.id, section_identifier)
+
+    return render(request, "portal/_clause_history.html", {
+        "document": document,
+        "section_identifier": section_identifier,
+        "history": history,
+    })

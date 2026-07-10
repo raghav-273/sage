@@ -27,5 +27,6 @@ urlpatterns = [
     path("documents/<uuid:document_id>/outline/", views.document_outline_page, name="document-outline-page"),
     path("documents/<uuid:document_id>/compliance/", views.compliance_query_page, name="compliance-query-page"),
     path("documents/<uuid:document_id>/compliance/submit/", views.compliance_submit, name="compliance-submit"),
+    path("documents/<uuid:document_id>/clause/<path:section_identifier>/history/",views.clause_investigation_history_partial,name="clause-investigation-history"),
     
 ]
