@@ -63,7 +63,7 @@ class SentenceTransformerEmbeddingClient(EmbeddingClient):
                 f"'{model_name or self.DEFAULT_MODEL}': {exc}"
             ) from exc
 
-        actual_dim = self._model.get_sentence_embedding_dimension()
+        actual_dim = self._model.get_embedding_dimension()
         if actual_dim != self.EMBEDDING_DIMENSIONS:
             raise EmbeddingError(
                 f"Loaded model produces {actual_dim}-dimensional vectors; "

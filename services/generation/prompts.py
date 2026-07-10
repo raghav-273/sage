@@ -92,3 +92,111 @@ def build_conversational_user_prompt(
         )
 
     return f"{history_block}Context:\n{context_block}\n\nQuestion: {query}"
+
+
+COMPLIANCE_SYSTEM_PROMPT = """You are an engineering compliance verification assistant.
+
+Your task: determine whether the provided requirement, design statement, or technical specification COMPLIES with the engineering standards documented in the context below.
+
+Rules:
+1. Your FIRST line must be exactly one of:
+   VERDICT: COMPLIANT
+   VERDICT: NON-COMPLIANT
+   VERDICT: INSUFFICIENT EVIDENCE
+2. After the verdict, provide 2-4 sentences of reasoning referencing specific clauses.
+3. For every factual claim, insert [CITE:{chunk_id}] immediately after it, using the Source IDs in the context. No spaces inside the marker.
+4. Use only the Source IDs provided. Do not invent IDs.
+5. COMPLIANT: the requirement is fully supported by the documented standard.
+   NON-COMPLIANT: the requirement contradicts or falls below the documented standard.
+   INSUFFICIENT EVIDENCE: the documents do not contain enough information to determine compliance.
+"""
+
+
+def build_compliance_user_prompt(requirement: str, chunks) -> str:
+    """Assembles the compliance-check prompt: context block + requirement."""
+    context_block = build_context_block(chunks)
+    return f"Context:\n{context_block}\n\nRequirement to verify:\n{requirement}"
+
+
+
+COMPARISON_SYSTEM_PROMPT = """You are an engineering document comparison assistant.
+
+The context below contains chunks from TWO documents, clearly labeled DOCUMENT A and DOCUMENT B.
+
+Your task: compare both documents' treatment of the query topic.
+
+Structure your response using EXACTLY these four section headers, each on its own line, with the ## prefix:
+## Agreements
+## Conflicts
+## Only in Document A
+## Only in Document B
+
+Rules:
+1. For every factual claim, insert [CITE:{chunk_id}] immediately after it, using the Source IDs shown in the context. No space inside the marker.
+2. Use only the Source IDs provided. Do not invent IDs.
+3. If a section has no relevant content, write: "None identified in the retrieved clauses."
+4. Do not speculate beyond the provided context.
+5. Be specific — reference clause identifiers, measured values, and tolerances where visible.
+6. Same value appearing in both documents → Agreements. Differing values or contradictory requirements → Conflicts.
+"""
+
+
+def build_comparison_context_block(
+    chunks_a: list,
+    doc_a_name: str,
+    chunks_b: list,
+    doc_b_name: str,
+) -> str:
+    """
+    Builds a context block that clearly separates Document A and Document B chunks
+    so the model can attribute each citation to the correct source.
+    """
+
+    def _format_chunk(chunk) -> str:
+        section_label = (
+            f" | Section {chunk.section_identifier}" if chunk.section_identifier else ""
+        )
+        return (
+            f"Source ID: {chunk.chunk_id}\n"
+            f"Page {chunk.page_number}{section_label}\n"
+            f"{chunk.chunk_text}"
+        )
+
+    parts = []
+
+    if chunks_a:
+        parts.append(
+            f"=== DOCUMENT A: {doc_a_name} ===\n"
+            + "\n---\n".join(_format_chunk(c) for c in chunks_a)
+        )
+    else:
+        parts.append(
+            f"=== DOCUMENT A: {doc_a_name} ===\n"
+            "(No relevant clauses retrieved for this document.)"
+        )
+
+    if chunks_b:
+        parts.append(
+            f"=== DOCUMENT B: {doc_b_name} ===\n"
+            + "\n---\n".join(_format_chunk(c) for c in chunks_b)
+        )
+    else:
+        parts.append(
+            f"=== DOCUMENT B: {doc_b_name} ===\n"
+            "(No relevant clauses retrieved for this document.)"
+        )
+
+    return "\n\n".join(parts)
+
+
+def build_comparison_user_prompt(
+    query: str,
+    chunks_a: list,
+    doc_a_name: str,
+    chunks_b: list,
+    doc_b_name: str,
+) -> str:
+    context_block = build_comparison_context_block(
+        chunks_a, doc_a_name, chunks_b, doc_b_name
+    )
+    return f"Context:\n{context_block}\n\nComparison query: {query}"
