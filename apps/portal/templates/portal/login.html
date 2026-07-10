@@ -9,68 +9,57 @@
 {% block content %}
 <div class="login-page">
 
-  {# ── Left panel: branding + security posture ──────────────────── #}
+  {# Left panel #}
   <div class="login-left">
-    <div class="login-brand">
+    <div>
       <div class="login-brand-name">SAGE</div>
       <div class="login-brand-full">Standards &amp; Guidelines Engine</div>
+      <p class="login-brand-desc">
+        Engineering document intelligence with verifiable,
+        citation-enforced answers. Every response is traceable to a
+        specific clause in a specific document.
+      </p>
     </div>
 
-    <p class="login-brand-desc">
-      Engineering document Q&amp;A with verifiable, citation-enforced answers.
-      Every response is traceable to a specific clause in a specific document.
-    </p>
-
     <div class="login-security-panel">
-      <div class="login-security-label">Active Security</div>
+      <div class="login-security-label">Security</div>
       <ul class="login-security-list">
-        <li>
-          <span class="login-security-dot dot-green"></span>
-          Cloudflare Turnstile verification
-        </li>
-        <li>
-          <span class="login-security-dot dot-green"></span>
-          All login attempts are logged
-        </li>
-        <li>
-          <span class="login-security-dot dot-green"></span>
-          Automated IP lockout active
-        </li>
-        <li>
-          <span class="login-security-dot dot-green"></span>
-          Bot honeypot detection
-        </li>
+        <li><span class="login-security-dot dot-green"></span>Cloudflare Turnstile verification</li>
+        <li><span class="login-security-dot dot-green"></span>All login attempts are logged</li>
+        <li><span class="login-security-dot dot-green"></span>Automated IP lockout active</li>
+        <li><span class="login-security-dot dot-green"></span>Bot honeypot detection</li>
       </ul>
     </div>
 
-    <div class="login-version">SAGE v2.0 &mdash; Engineering Evidence Platform</div>
+    <div class="login-version">SAGE v2.0 — Engineering Evidence Platform</div>
   </div>
 
-  {# ── Right panel: login form ──────────────────────────────────── #}
+  {# Right panel #}
   <div class="login-right">
     <div class="login-form-container">
-      <h1 class="login-form-title">Sign in</h1>
-      <p class="login-form-sub">Authorised access only. All activity is monitored and logged.</p>
 
-      {# Lockout state — full block #}
+      <h1 class="login-form-title">Sign in</h1>
+      <p class="login-form-sub">
+        Authorised access only. All activity is monitored and logged.
+      </p>
+
       {% if is_locked_out %}
       <div class="login-lockout-notice">
-        <div class="login-lockout-icon">&#128274;</div>
+        <div class="login-lockout-bar"></div>
         <div>
-          <strong>Access temporarily suspended</strong>
+          <div class="login-lockout-title">Access temporarily suspended</div>
           <p class="mb-0 small">
             Too many failed login attempts from this IP address.
-            Access will be restored in approximately {{ lockout_minutes }} minute{{ lockout_minutes|pluralize }}.
+            Access will be restored in approximately
+            {{ lockout_minutes }} minute{{ lockout_minutes|pluralize }}.
           </p>
         </div>
       </div>
 
       {% else %}
 
-      {# Error message #}
       {% if login_error_message %}
       <div class="login-error-notice" role="alert">
-        <span aria-hidden="true">&#9888;</span>
         {{ login_error_message }}
       </div>
       {% endif %}
@@ -78,8 +67,8 @@
       <form method="post" autocomplete="off" novalidate>
         {% csrf_token %}
 
-        {# ── Honeypot — invisible to humans, bots fill this in ── #}
-        <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true" tabindex="-1">
+        {# Honeypot #}
+        <div style="position:absolute;left:-9999px;top:-9999px;" aria-hidden="true" tabindex="-1">
           <label for="contact_url">Leave this field empty</label>
           <input type="text" id="contact_url" name="contact_url" tabindex="-1" autocomplete="off">
         </div>
@@ -96,30 +85,31 @@
             <input type="password" name="password" id="id_password"
                    class="login-input" required autocomplete="current-password">
             <button type="button" class="login-password-toggle"
-                    onclick="togglePasswordVisibility()"
-                    aria-label="Show or hide password">
-              <span id="toggle-icon">&#128065;</span>
+                    onclick="togglePassword(this)"
+                    aria-label="Toggle password visibility">
+              Show
             </button>
           </div>
         </div>
 
-        {# ── Verification layer ─────────────────────────────────── #}
         {% if challenge_required %}
         <div class="login-verification-block">
-          <div class="login-verification-header">
-            <span>&#128274;</span>
-            <span>Verification required</span>
-          </div>
+          <div class="login-verification-label">Verification required</div>
           {% if show_fallback_challenge %}
+          {% if login_error_message %}
           <p class="small text-muted mb-2">{{ login_error_message }}</p>
-          <label for="id_fallback_challenge_answer" class="login-label">
+          {% endif %}
+          <label for="id_fallback_challenge_answer" class="login-label mt-2">
             {{ fallback_challenge_question }}
           </label>
-          <input type="text" name="fallback_challenge_answer" id="id_fallback_challenge_answer"
+          <input type="text" name="fallback_challenge_answer"
+                 id="id_fallback_challenge_answer"
                  class="login-input" required autocomplete="off">
-          <input type="hidden" name="fallback_challenge_token" value="{{ fallback_challenge_token }}">
+          <input type="hidden" name="fallback_challenge_token"
+                 value="{{ fallback_challenge_token }}">
           {% else %}
-          <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-theme="light"></div>
+          <div class="cf-turnstile mt-2" data-sitekey="{{ turnstile_site_key }}"
+               data-theme="light"></div>
           {% endif %}
         </div>
         {% endif %}
@@ -136,15 +126,14 @@
 
 {% block extra_scripts %}
 <script>
-  function togglePasswordVisibility() {
-    const field = document.getElementById('id_password');
-    const icon = document.getElementById('toggle-icon');
+  function togglePassword(btn) {
+    var field = document.getElementById('id_password');
     if (field.type === 'password') {
       field.type = 'text';
-      icon.textContent = '🙈';
+      btn.textContent = 'Hide';
     } else {
       field.type = 'password';
-      icon.textContent = '👁';
+      btn.textContent = 'Show';
     }
   }
 </script>

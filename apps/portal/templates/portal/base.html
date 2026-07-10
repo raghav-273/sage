@@ -21,6 +21,7 @@
                     <a href="{% url 'dashboard' %}" class="nav-link">Dashboard</a>
                     <a href="{% url 'document-upload-page' %}" class="nav-link">Upload</a>
                     <a href="{% url 'query-page' %}" class="nav-link">Ask a Question</a>
+                    <a href="{% url 'comparison-page' %}" class="nav-link">Compare</a>
                     <span class="nav-link text-muted small" style="cursor:default;">{{ user.username }}</span>
                     <form method="post" action="{% url 'logout' %}" class="d-flex mb-0">
                         {% csrf_token %}
