@@ -7,11 +7,11 @@
     <span class="finding-number">{{ finding_number|default:turn.turn_index }}</span>
     <div class="finding-question">{{ turn.query_text }}</div>
     {% if turn.has_valid_citations %}
-    <span class="confidence-badge badge-verified finding-badge">&#9989; Verified</span>
+    <span class="confidence-badge badge-verified finding-badge">Verified</span>
     {% elif turn.retrieved_chunk_count > 0 %}
-    <span class="confidence-badge badge-unverified finding-badge">&#9888; Unverified</span>
+    <span class="confidence-badge badge-unverified finding-badge">Unverified</span>
     {% else %}
-    <span class="confidence-badge badge-not-found finding-badge">&#10060; Not Found</span>
+    <span class="confidence-badge badge-not-found finding-badge">Not Found</span>
     {% endif %}
   </div>
   <div class="finding-body">
