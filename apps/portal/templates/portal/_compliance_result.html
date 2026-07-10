@@ -6,7 +6,12 @@
 
   {# Verdict header #}
   <div class="compliance-verdict-header {{ result.verdict_class }}">
-    <span class="compliance-verdict-icon">{{ result.verdict_icon }}</span>
+    <span class="compliance-verdict-icon">
+      {% if result.verdict == "COMPLIANT" %}PASS
+      {% elif result.verdict == "NON-COMPLIANT" %}FAIL
+      {% else %}INSUFFICIENT
+      {% endif %}
+    </span>
     <div>
       <div class="compliance-verdict-label">{{ result.verdict }}</div>
       <div class="compliance-requirement-echo small">{{ result.requirement|truncatechars:120 }}</div>

@@ -1,0 +1,25 @@
+{% if not history %}
+<div class="clause-history-empty">
+  No investigations have cited section {{ section_identifier }} in {{ document.name }} yet.
+</div>
+{% else %}
+<div class="clause-history-header">
+  Section {{ section_identifier }} — cited in {{ history|length }}
+  investigation{{ history|length|pluralize }}
+</div>
+{% for entry in history %}
+<div class="clause-history-item">
+  <div class="clause-history-meta">
+    <span class="font-monospace small fw-semibold">{{ entry.investigation_title }}</span>
+    <span class="text-muted small">{{ entry.analyst }}</span>
+    {% if entry.has_valid_citations %}
+    <span class="badge-verified confidence-badge" style="font-size:0.6rem; padding:0.15rem 0.4rem;">Verified</span>
+    {% else %}
+    <span class="badge-unverified confidence-badge" style="font-size:0.6rem; padding:0.15rem 0.4rem;">Unverified</span>
+    {% endif %}
+  </div>
+  <p class="clause-history-question">Q: {{ entry.question }}</p>
+  <p class="clause-history-answer small text-muted mb-0">{{ entry.answer_excerpt }}{% if entry.answer_excerpt|length == 200 %}...{% endif %}</p>
+</div>
+{% endfor %}
+{% endif %}
