@@ -185,3 +185,44 @@ def build_document_outline(document_id: uuid.UUID) -> DocumentOutline:
         total_citations=sum(citation_counts.values()),
         has_clauses=True,
     )
+
+def get_clause_investigation_history(
+    document_id: uuid.UUID,
+    section_identifier: str,
+) -> list[dict]:
+    """
+    Returns a list of investigation turn summaries that cited this clause.
+
+    Used by the Clause Navigator to surface "which investigations referenced
+    this clause, and what did they conclude?" — closing the loop between
+    document structure and research history.
+    """
+    from apps.conversation.models import ConversationTurn, DocumentSession
+
+    normalized = normalize_identifier(section_identifier)
+    if normalized is None:
+        return []
+
+    history = []
+    sessions = DocumentSession.objects.filter(document_id=document_id).select_related("user")
+    for turn in (
+        ConversationTurn.objects
+        .filter(session__in=sessions)
+        .order_by("-session__created_at", "turn_index")
+        .select_related("session", "session__user")
+    ):
+        for citation in turn.citations or []:
+            raw_section = citation.get("section_identifier")
+            if raw_section and normalize_identifier(raw_section) == normalized:
+                history.append({
+                    "investigation_title": turn.session.title or "Untitled",
+                    "analyst": turn.session.user.username,
+                    "question": turn.query_text,
+                    "answer_excerpt": turn.answer_text[:200],
+                    "has_valid_citations": turn.has_valid_citations,
+                    "session_id": str(turn.session.id),
+                    "document_id": str(document_id),
+                })
+                break  # one entry per turn, not one per citation in the turn
+
+    return history
