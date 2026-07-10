@@ -131,12 +131,15 @@ class ConversationServicesTests(TestCase):
         session = get_or_create_active_session(self.document, self.user)
         ask_in_session(session, "a question")
 
-        new_session = clear_session(session)
+        clear_session(session)
 
         session.refresh_from_db()
         self.assertFalse(session.is_active)
+        # After clearing, get_or_create_active_session creates a new one —
+        # the service no longer does this automatically (changed in the
+        # Investigation Workspace milestone; the view handles it on next load).
+        new_session = get_or_create_active_session(self.document, self.user)
         self.assertNotEqual(new_session.id, session.id)
-        self.assertEqual(get_recent_turns(new_session), [])
 
     @mock.patch("apps.conversation.services.generate_answer")
     def test_old_session_turns_not_visible_after_clear(self, mock_generate) -> None:
@@ -144,8 +147,8 @@ class ConversationServicesTests(TestCase):
         session = get_or_create_active_session(self.document, self.user)
         ask_in_session(session, "a question before clearing")
 
-        new_session = clear_session(session)
+        clear_session(session)
         next_active = get_or_create_active_session(self.document, self.user)
 
-        self.assertEqual(next_active.id, new_session.id)
+        self.assertNotEqual(next_active.id, session.id)
         self.assertEqual(ConversationTurn.objects.filter(session=next_active).count(), 0)

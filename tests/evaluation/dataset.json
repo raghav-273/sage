@@ -1,0 +1,162 @@
+[
+  {
+    "id": "Q001",
+    "query_type": "factual_lookup",
+    "question": "What is the minimum tensile strength requirement for fish plate joints?",
+    "expected_answer_contains": ["720", "MPa"],
+    "expected_source_section_contains": "4.3",
+    "notes": "Core factual lookup against a measured value with unit"
+  },
+  {
+    "id": "Q002",
+    "query_type": "definition",
+    "question": "How is formation width defined in this specification?",
+    "expected_answer_contains": ["formation", "width"],
+    "expected_source_section_contains": null,
+    "notes": "Definition lookup — tests whether glossary-type content is retrieved"
+  },
+  {
+    "id": "Q003",
+    "query_type": "requirement_list",
+    "question": "What are the mandatory requirements for ballast specification?",
+    "expected_answer_contains": ["ballast"],
+    "expected_source_section_contains": null,
+    "notes": "Multi-clause requirement aggregation"
+  },
+  {
+    "id": "Q004",
+    "query_type": "cross_reference",
+    "question": "Which clause governs the requirements for curved track geometry?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Cross-reference navigation — tests graph or semantic retrieval"
+  },
+  {
+    "id": "Q005",
+    "query_type": "exception",
+    "question": "What exceptions apply to the standard track gauge requirement?",
+    "expected_answer_contains": ["gauge"],
+    "expected_source_section_contains": null,
+    "notes": "Exception clause retrieval"
+  },
+  {
+    "id": "Q006",
+    "query_type": "table_lookup",
+    "question": "What are the permissible axle load limits specified in this document?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Table-content retrieval — axle loads typically in tabular form"
+  },
+  {
+    "id": "Q007",
+    "query_type": "applicability",
+    "question": "Does this specification apply to broad gauge lines only, or does it cover metre gauge?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Scope/applicability clause — tests whether the system finds scope sections"
+  },
+  {
+    "id": "Q008",
+    "query_type": "negative",
+    "question": "What are the requirements for overhead catenary wire tension on electrified routes?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Negative case — expected NOT FOUND if the document is a track geometry spec"
+  },
+  {
+    "id": "Q009",
+    "query_type": "factual_lookup",
+    "question": "What is the minimum radius permitted for main line curves at the maximum permitted speed?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Speed-radius relationship — tests numerical retrieval with conditions"
+  },
+  {
+    "id": "Q010",
+    "query_type": "definition",
+    "question": "What does the specification define as the ruling gradient?",
+    "expected_answer_contains": ["gradient"],
+    "expected_source_section_contains": null,
+    "notes": "Domain-specific definition"
+  },
+  {
+    "id": "Q011",
+    "query_type": "requirement_list",
+    "question": "List the inspection requirements for rail joints specified in this document.",
+    "expected_answer_contains": ["joint"],
+    "expected_source_section_contains": null,
+    "notes": "Inspection regime retrieval"
+  },
+  {
+    "id": "Q012",
+    "query_type": "factual_lookup",
+    "question": "What is the specified minimum sleeper spacing for broad gauge track?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Infrastructure dimension lookup"
+  },
+  {
+    "id": "Q013",
+    "query_type": "cross_reference",
+    "question": "Which clauses reference the requirements for points and crossings?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Cross-reference retrieval for a specific infrastructure type"
+  },
+  {
+    "id": "Q014",
+    "query_type": "exception",
+    "question": "Under what conditions is a reduced rail section permitted?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Conditional exception requiring nuanced retrieval"
+  },
+  {
+    "id": "Q015",
+    "query_type": "applicability",
+    "question": "Does this document cover requirements for bridges and culverts?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Negative applicability — likely out of scope for a track spec"
+  },
+  {
+    "id": "Q016",
+    "query_type": "factual_lookup",
+    "question": "What is the specified rail head wear limit before replacement is required?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Maintenance threshold lookup"
+  },
+  {
+    "id": "Q017",
+    "query_type": "definition",
+    "question": "How is the term 'transition curve' defined or described in this specification?",
+    "expected_answer_contains": ["transition"],
+    "expected_source_section_contains": null,
+    "notes": "Technical term definition"
+  },
+  {
+    "id": "Q018",
+    "query_type": "requirement_list",
+    "question": "What are the requirements for drainage on earthwork formations?",
+    "expected_answer_contains": ["drain"],
+    "expected_source_section_contains": null,
+    "notes": "Multi-clause infrastructure requirement"
+  },
+  {
+    "id": "Q019",
+    "query_type": "cross_reference",
+    "question": "Which clauses of this document have been amended or superseded by later revisions?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Revision history — tests whether amendment notes are retrieved"
+  },
+  {
+    "id": "Q020",
+    "query_type": "negative",
+    "question": "What are the fire suppression requirements for rolling stock under this specification?",
+    "expected_answer_contains": [],
+    "expected_source_section_contains": null,
+    "notes": "Hard negative — rolling stock fire suppression is outside track spec scope"
+  }
+]
