@@ -34,35 +34,52 @@
          data-depth="{{ node.depth }}">
       <div class="d-flex align-items-start gap-2 py-2 pe-3">
         {% if row.has_children %}
-        <button class="outline-toggle" data-target="{{ node.css_id }}-children"
-                onclick="toggleSection(this)" aria-expanded="true">&#9660;</button>
+        <button class="outline-toggle"
+                data-target="{{ node.css_id }}-children"
+                onclick="toggleSection(this)"
+                aria-expanded="true">
+          &#9660;
+        </button>
         {% else %}
         <span class="outline-toggle-spacer"></span>
         {% endif %}
+
         <div class="flex-grow-1">
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <span class="outline-identifier font-monospace">{{ node.identifier }}</span>
-            {% if node.citation_count > 0 %}
-            <span class="badge bg-primary" style="font-size:0.65rem;"
-                  title="{{ node.citation_count }} citation{{ node.citation_count|pluralize }} across all investigations">
-              &#128269; {{ node.citation_count }}
+            <span class="text-muted small">
+              {{ node.chunk_count }} chunk{{ node.chunk_count|pluralize }}
             </span>
-            {% endif %}
-            <span class="text-muted small">{{ node.chunk_count }} chunk{{ node.chunk_count|pluralize }}</span>
           </div>
+
           {% if node.first_chunk_excerpt %}
-          <p class="outline-excerpt small text-muted mt-1 mb-0">{{ node.first_chunk_excerpt|truncatechars:140 }}</p>
+          <p class="outline-excerpt small text-muted mt-1 mb-0">
+            {{ node.first_chunk_excerpt|truncatechars:140 }}
+          </p>
           {% endif %}
         </div>
-        {% if node.first_chunk_id %}
-        <button class="btn btn-xs btn-outline-secondary outline-inspect"
-                hx-get="{% url 'chunk-context-partial' node.first_chunk_id %}"
-                hx-target="#citation-panel-body"
-                hx-swap="innerHTML"
-                title="Inspect source in context panel">
-          Inspect
-        </button>
-        {% endif %}
+
+        <div class="d-flex gap-1 flex-shrink-0">
+          {% if node.citation_count > 0 %}
+          <button class="btn btn-xs btn-outline-primary outline-history"
+                  hx-get="{% url 'clause-investigation-history' document.id node.identifier %}"
+                  hx-target="#citation-panel-body"
+                  hx-swap="innerHTML"
+                  title="Show investigation history for this clause">
+            {{ node.citation_count }} cited
+          </button>
+          {% endif %}
+
+          {% if node.first_chunk_id %}
+          <button class="btn btn-xs btn-outline-secondary outline-inspect"
+                  hx-get="{% url 'chunk-context-partial' node.first_chunk_id %}"
+                  hx-target="#citation-panel-body"
+                  hx-swap="innerHTML"
+                  title="Inspect source in context panel">
+            Inspect
+          </button>
+          {% endif %}
+        </div>
       </div>
       {% if row.has_children %}
       <div id="{{ node.css_id }}-children" class="outline-children"></div>
