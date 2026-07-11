@@ -94,6 +94,7 @@ LOCAL_APPS = [
     "apps.api",   # NEW
     "apps.portal",   # NEW
     "apps.conversation", # NEW
+    "apps.accounts", # NEW 3.0
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -124,6 +125,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.middleware.RequiresPasswordResetMiddleware",  # NEW
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -237,6 +239,12 @@ REST_FRAMEWORK = {
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard"
 LOGOUT_REDIRECT_URL = "login"
+
+
+# Password reset token validity.
+# Django's default is 3 days. One day is more appropriate for an
+# engineering platform where reset emails should be acted on promptly.
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT_SECONDS", default=86400)
 
 # Adaptive login verification — apps.portal.login_security
 # No CAPTCHA on normal logins. After this many failures from the same IP
