@@ -34,6 +34,10 @@ class LoginAttempt(models.Model):
     )
     user_agent = models.TextField(blank=True, default="")
     timestamp = models.DateTimeField(auto_now_add=True)
+    migrated_to_auditlog = models.BooleanField(      # NEW — matches 0002_deprecate_loginattempt
+        default=False,
+        help_text="True once this record has been superseded by an AuditLog entry.",
+    )
 
     class Meta:
         ordering = ["-timestamp"]
