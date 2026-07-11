@@ -300,21 +300,44 @@ logger = logging.getLogger("apps.portal.views")
 class PortalLoginView(LoginView):
     template_name = "portal/login.html"
 
-    def _log_attempt(
-        self,
-        request,
-        ip: str,
-        success: bool,
-        failure_reason: str = "",
-    ) -> None:
-        from .models import LoginAttempt
+    def _log_attempt(self,request,ip: str,success: bool,failure_reason: str = "",) -> None:
+        """
+        Writes to both LoginAttempt (deprecated, for backward compatibility)
+        and AuditLog (current). Once the LoginAttempt table is formally
+        cleaned up, the first write can be removed.
+        """
+        from apps.portal.models import LoginAttempt
+        from services.audit.audit_service import log_event
+
+        username_attempted = request.POST.get("username", "")[:255]
+        user_agent = request.META.get("HTTP_USER_AGENT", "")[:500]
+
+        # Legacy write — deprecated but retained for historical continuity.
         LoginAttempt.objects.create(
             ip_address=ip,
-            username_attempted=request.POST.get("username", "")[:255],
+            username_attempted=username_attempted,
             success=success,
             failure_reason=failure_reason,
-            user_agent=request.META.get("HTTP_USER_AGENT", "")[:500],
+            user_agent=user_agent,
         )
+
+        # Current write — unified AuditLog.
+        if success:
+            log_event(
+                event_type="auth_login_success",
+                actor=request.user if request.user.is_authenticated else None,
+                detail={"username": username_attempted},
+                request=request,
+            )
+        else:
+            log_event(
+                event_type="auth_login_failure",
+                severity="warning",
+                detail={"username": username_attempted, "reason": failure_reason},
+                request=request,
+                ip_address=ip,
+                user_agent=user_agent,
+            )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
