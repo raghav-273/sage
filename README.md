@@ -292,7 +292,7 @@ This repository is intended for educational, research, and engineering demonstra
 ---
 
 ## SAGE 2.0 
-### introduces a significantly enhanced engineering knowledge platform with:
+### Introduces a significantly enhanced engineering knowledge platform with:
 
 - Clause navigation and history
 - Compliance analysis improvements
