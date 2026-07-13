@@ -131,6 +131,25 @@ def run_ingestion_pipeline(
     """
     Runs the complete ingestion pipeline for a Document:
         EXTRACTING → CHUNKING → CAPTIONING → EMBEDDING → READY
+        
+    NEW Core ingestion: EXTRACTING → CHUNKING → EMBEDDING → READY.
+
+    Caption generation is NOT part of this pipeline. It runs as a
+    separate Celery task (generate_figure_captions_task) dispatched
+    after READY. This ensures:
+        - Documents become queryable immediately after embedding
+        - A Gemini quota error or outage never blocks ingestion
+        - Failed captions can be retried independently
+        
+        removed Block :
+        document.status = Document.Status.CAPTIONING
+        document.save(update_fields=["status"])
+        logger.info("ingestion_stage document_id=%s stage=CAPTIONING", document_id)
+        caption_count = _generate_captions_for_document(document_id)
+        logger.info(
+            "ingestion_captioning_completed document_id=%s captions_generated=%d",
+            document_id, caption_count,
+        )
     """
     from apps.documents.models import Document
 
@@ -147,14 +166,7 @@ def run_ingestion_pipeline(
         logger.info("ingestion_stage document_id=%s stage=CHUNKING", document_id)
         chunk_document(document_id)
 
-        document.status = Document.Status.CAPTIONING
-        document.save(update_fields=["status"])
-        logger.info("ingestion_stage document_id=%s stage=CAPTIONING", document_id)
-        caption_count = _generate_captions_for_document(document_id)
-        logger.info(
-            "ingestion_captioning_completed document_id=%s captions_generated=%d",
-            document_id, caption_count,
-        )
+        # removed Captioning stage-
 
         document.status = Document.Status.EMBEDDING
         document.save(update_fields=["status"])
@@ -169,6 +181,15 @@ def run_ingestion_pipeline(
         document.status = Document.Status.READY
         document.save(update_fields=["status"])
         logger.info("ingestion_completed document_id=%s status=READY", document_id)
+        
+        # Dispatch caption generation as a separate, non-blocking task.
+        # Imported here to avoid circular imports.
+        from apps.ingestion.tasks import generate_figure_captions_task
+        generate_figure_captions_task.delay(str(document_id))
+        logger.info(
+            "caption_task_dispatched document_id=%s", document_id
+        )
+
 
     except Exception as exc:
         logger.error(

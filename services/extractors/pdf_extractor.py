@@ -80,19 +80,36 @@ def extract_page_text(page: fitz.Page) -> str:
     return page.get_text("text") or ""
 
 
-def extract_page_images(
-    pdf_doc: fitz.Document, page: fitz.Page, page_number: int
-) -> list[ExtractedImage]:
+# Replace extract_page_images with this version:
+
+MIN_IMAGE_DIMENSION_PX = 50
+"""
+Images smaller than this in either dimension are skipped.
+Engineering documents often embed decorative elements (bullets, rules,
+logos) as tiny raster images. These are noise in the Figure Explorer.
+"""
+
+
+def extract_page_images(pdf_doc: fitz.Document, page: fitz.Page, page_number: int) -> list[ExtractedImage]:
     """
-    Extract embedded images from a single page.
+    Extract embedded images from a single page using Pixmap rendering.
 
-    Enumerates image xrefs via page.get_images(full=True), then retrieves
-    raw bytes via pdf_doc.extract_image(xref). Bounding box is resolved via
-    page.get_image_rects(xref) when PyMuPDF can locate it; some embedded
-    images cannot be geometrically located, in which case bbox is None.
+    Uses fitz.Pixmap(pdf_doc, xref) rather than pdf_doc.extract_image(xref)
+    because:
 
-    A single xref is extracted at most once per page, since the same
-    embedded image can be referenced multiple times (e.g. a repeated logo).
+    - extract_image() returns raw bytes in the PDF's native format (JBIG2,
+      CCITT, JPEG2000, etc.) which the browser may not be able to display
+      even when named .jpeg.
+    - Pixmap renders through PyMuPDF's graphics engine and produces a
+      proper JPEG regardless of the original embedded format — confirmed
+      to work for DeviceRGB, CMYK, indexed colour, and masked images.
+
+    CMYK images (n >= 5) are converted to RGB before saving. Alpha channels
+    are dropped (most engineering diagrams do not use transparency, and
+    JPEG does not support alpha).
+
+    Images below MIN_IMAGE_DIMENSION_PX in either dimension are skipped —
+    they are almost always decorative elements, not engineering figures.
     """
     images: list[ExtractedImage] = []
     seen_xrefs: set[int] = set()
@@ -104,13 +121,43 @@ def extract_page_images(
         seen_xrefs.add(xref)
 
         try:
-            base_image = pdf_doc.extract_image(xref)
+            pix = fitz.Pixmap(pdf_doc, xref)
         except Exception as exc:
             logger.warning(
-                "image_extract_failed page=%s xref=%s error=%s",
+                "pixmap_create_failed page=%s xref=%s error=%s",
                 page_number, xref, exc,
             )
             continue
+
+        # Skip images too small to be meaningful engineering figures
+        if pix.width < MIN_IMAGE_DIMENSION_PX or pix.height < MIN_IMAGE_DIMENSION_PX:
+            logger.debug(
+                "image_skipped_too_small page=%s xref=%s w=%s h=%s",
+                page_number, xref, pix.width, pix.height,
+            )
+            pix = None  # allow GC
+            continue
+
+        try:
+            # Convert CMYK (n=4) or CMYK+alpha (n=5) to RGB
+            if pix.n >= 4:
+                pix = fitz.Pixmap(fitz.csRGB, pix)
+
+            # Drop alpha channel if present (JPEG does not support alpha)
+            if pix.alpha:
+                pix = fitz.Pixmap(pix, 0)  # remove alpha
+
+            image_bytes = pix.tobytes("jpeg", jpg_quality=85)
+            image_ext = "jpeg"
+
+        except Exception as exc:
+            logger.warning(
+                "pixmap_convert_failed page=%s xref=%s error=%s",
+                page_number, xref, exc,
+            )
+            continue
+        finally:
+            pix = None  # release memory; Pixmap objects can be large
 
         bbox: tuple[float, float, float, float] | None = None
         try:
@@ -125,10 +172,10 @@ def extract_page_images(
             ExtractedImage(
                 page_number=page_number,
                 xref=xref,
-                image_bytes=base_image["image"],
-                image_ext=base_image.get("ext", "png"),
-                width=base_image.get("width", 0),
-                height=base_image.get("height", 0),
+                image_bytes=image_bytes,
+                image_ext=image_ext,
+                width=img_info[2],   # width from image list metadata
+                height=img_info[3],  # height from image list metadata
                 bbox=bbox,
             )
         )
@@ -242,19 +289,28 @@ def extract_document(document_id: uuid.UUID) -> ExtractionResult:
                 pages_updated += 0 if created else 1
 
                 for image in extracted_page.images:
-                    # Deterministic path → idempotent on disk and in the DB.
-                    image_filename = f"page_{image.page_number}_xref_{image.xref}.{image.image_ext}"
+                    # All images from extract_page_images are now JPEG
+                    # (the Pixmap approach normalises format).
+                    image_filename = (
+                        f"page_{image.page_number}_xref_{image.xref}.{image.image_ext}"
+                    )
                     relative_image_path = str(
                         Path(settings.IMAGES_UPLOAD_DIR) / str(document.id) / image_filename
                     )
 
                     if DiagramAsset.objects.filter(
-                        document=document, page=page_obj, image_path=relative_image_path
+                        document=document,
+                        page=page_obj,
+                        image_path=relative_image_path,
                     ).exists():
                         images_skipped += 1
                         continue
 
-                    absolute_image_path = Path(settings.MEDIA_ROOT) / relative_image_path
+                    absolute_image_path = (
+                        Path(settings.MEDIA_ROOT) / relative_image_path
+                    )
+                    absolute_image_path.parent.mkdir(parents=True, exist_ok=True)
+
                     try:
                         absolute_image_path.write_bytes(image.image_bytes)
                     except OSError as exc:
@@ -262,10 +318,35 @@ def extract_document(document_id: uuid.UUID) -> ExtractionResult:
                             f"Failed to write image to {absolute_image_path}: {exc}"
                         ) from exc
 
+                    # Verify file was written and is non-zero before creating the DB record.
+                    # Prevents DiagramAsset rows that point to missing/empty files.
+                    actual_size = (
+                        absolute_image_path.stat().st_size
+                        if absolute_image_path.exists()
+                        else 0
+                    )
+                    if actual_size == 0:
+                        logger.warning(
+                            "image_write_produced_empty_file path=%s "
+                            "skipping DiagramAsset creation",
+                            absolute_image_path,
+                        )
+                        try:
+                            absolute_image_path.unlink(missing_ok=True)
+                        except OSError:
+                            pass
+                        images_skipped += 1
+                        continue
+
                     bounding_box = None
                     if image.bbox is not None:
                         x0, y0, x1, y1 = image.bbox
-                        bounding_box = {"x": x0, "y": y0, "width": x1 - x0, "height": y1 - y0}
+                        bounding_box = {
+                            "x": x0,
+                            "y": y0,
+                            "width": x1 - x0,
+                            "height": y1 - y0,
+                        }
 
                     DiagramAsset.objects.create(
                         document=document,
@@ -274,8 +355,8 @@ def extract_document(document_id: uuid.UUID) -> ExtractionResult:
                         image_format=image.image_ext.upper(),
                         width_px=image.width or None,
                         height_px=image.height or None,
-                        caption=None,  # caption detection is out of scope for this milestone
-                        ocr_text=None,  # OCR is out of scope for this milestone
+                        caption=None,
+                        ocr_text=None,
                         bounding_box=bounding_box,
                     )
                     images_created += 1
