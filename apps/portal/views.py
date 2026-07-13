@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import uuid
 import logging
+import mimetypes
+import os
 
+from django.http import FileResponse, Http404
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
@@ -688,3 +691,44 @@ def clause_investigation_history_partial(
         "section_identifier": section_identifier,
         "history": history,
     })
+    
+@login_required
+def serve_media_file(request: HttpRequest, path: str) -> HttpResponse:
+    """
+    Authenticated media file serving.
+
+    Replaces Django's static() URL helper (which only works with runserver
+    + DEBUG=True) with a view that works in all modes including gunicorn
+    over HTTPS. Authentication is enforced — no media file is accessible
+    without a valid session.
+
+    Path traversal is prevented by resolving the absolute path and
+    confirming it sits within MEDIA_ROOT before opening.
+    """
+    from django.conf import settings
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    requested = (media_root / path).resolve()
+
+    # Prevent path traversal attacks
+    try:
+        requested.relative_to(media_root)
+    except ValueError:
+        raise Http404
+
+    if not requested.exists() or not requested.is_file():
+        raise Http404
+
+    content_type, _ = mimetypes.guess_type(str(requested))
+    content_type = content_type or "application/octet-stream"
+
+    response = FileResponse(
+        open(requested, "rb"),
+        content_type=content_type,
+    )
+    # Allow inline display in browser (for images and PDFs)
+    filename = requested.name
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    response["Content-Length"] = requested.stat().st_size
+    return response
+
