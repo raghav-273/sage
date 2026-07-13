@@ -92,6 +92,14 @@
           </div>
         </div>
 
+        <div style="text-align:right;margin-top:-0.75rem;margin-bottom:1rem;">
+          <a href="{% url 'password_reset' %}"
+             style="font-size:0.72rem;color:#94a3b8;text-decoration:none;">
+            Forgot password?
+          </a>
+        </div>
+
+        
         {% if challenge_required %}
         <div class="login-verification-block">
           <div class="login-verification-label">Verification required</div>
