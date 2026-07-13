@@ -436,3 +436,28 @@ LOGGING = {
         },
     },
 }
+
+# ── Email configuration ──────────────────────────────────────────────
+# Default: console backend (prints to stdout, no external dependency).
+# For production, configure an SMTP relay or Mailgun via anymail:
+#   EMAIL_BACKEND=anymail.backends.mailgun.EmailBackend
+#   ANYMAIL={"MAILGUN_API_KEY": env("MAILGUN_API_KEY"), "MAILGUN_SENDER_DOMAIN": env("MAILGUN_SENDER_DOMAIN")}
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@sage.local")
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+
+# Site URL — used in email templates to generate absolute links.
+# Must be the public-facing base URL including scheme, no trailing slash.
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
+
+# Password reset token lifetime (seconds). One day.
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT_SECONDS", default=86400)
+
+# --------------------------------  --------------------------------  
