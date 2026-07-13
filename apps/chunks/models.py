@@ -148,3 +148,27 @@ class DiagramAsset(models.Model):
 
     def __str__(self) -> str:
         return f"Diagram on page {self.page.page_number} of {self.document.name}"
+    
+    
+    class CaptionStatus(models.TextChoices):
+        PENDING = "pending", "Pending"
+        IN_PROGRESS = "in_progress", "In Progress"
+        COMPLETE = "complete", "Complete"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped — no useful content"
+
+    caption_status = models.CharField(
+        max_length=15,
+        choices=CaptionStatus.choices,
+        default=CaptionStatus.PENDING,
+        db_index=True,
+    )
+    caption_error = models.TextField(
+        blank=True,
+        default="",
+        help_text="Last error message from caption generation, if any.",
+    )
+    caption_attempts = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Number of caption generation attempts made.",
+    )
