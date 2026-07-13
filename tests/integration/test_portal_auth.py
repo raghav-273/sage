@@ -282,3 +282,107 @@ class AdaptiveLoginVerificationTests(TestCase):
             },
         )
         self.assertTrue(LoginAttempt.objects.filter(success=True).exists())
+        
+
+class PasswordResetFlowTests(TestCase):
+    """
+    Tests the password reset flow using Django's built-in views
+    with SAGE's template overrides.
+
+    Email sending is mocked — these tests verify the view logic,
+    token validation, audit log writes, and template rendering,
+    not email delivery.
+    """
+
+    def setUp(self) -> None:
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="reviewer",
+            password="old-password-123",
+            email="reviewer@example.com",
+        )
+
+    @mock.patch("django.core.mail.send_mail")
+    def test_reset_request_page_loads(self, _mock_mail) -> None:
+        response = self.client.get(reverse("password_reset"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reset password")
+
+    @mock.patch("django.core.mail.EmailMultiAlternatives.send")
+    def test_valid_email_returns_done_page(self, _mock_send) -> None:
+        response = self.client.post(
+            reverse("password_reset"), {"email": "reviewer@example.com"}
+        )
+        self.assertRedirects(response, reverse("password_reset_done"))
+
+    @mock.patch("django.core.mail.EmailMultiAlternatives.send")
+    def test_unknown_email_still_returns_done_page(self, _mock_send) -> None:
+        # Enumeration prevention: same response regardless of whether the
+        # email exists.
+        response = self.client.post(
+            reverse("password_reset"), {"email": "nobody@example.com"}
+        )
+        self.assertRedirects(response, reverse("password_reset_done"))
+
+    def test_done_page_loads(self) -> None:
+        response = self.client.get(reverse("password_reset_done"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Reset link sent")
+
+    def test_invalid_token_shows_expired_message(self) -> None:
+        response = self.client.get(
+            reverse("password_reset_confirm", kwargs={
+                "uidb64": "invalidb64",
+                "token": "invalid-token",
+            })
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "expired or invalid")
+
+    def test_complete_page_loads(self) -> None:
+        response = self.client.get(reverse("password_reset_complete"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Password changed")
+
+    @mock.patch("django.core.mail.EmailMultiAlternatives.send")
+    def test_reset_request_writes_audit_log(self, _mock_send) -> None:
+        from apps.accounts.models import AuditLog
+        self.client.post(
+            reverse("password_reset"), {"email": "reviewer@example.com"}
+        )
+        self.assertTrue(
+            AuditLog.objects.filter(
+                event_type="auth_password_reset_requested"
+            ).exists()
+        )
+
+    def test_forgot_password_link_on_login_page(self) -> None:
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, reverse("password_reset"))
+        self.assertContains(response, "Forgot password")
+
+    @mock.patch("django.core.mail.EmailMultiAlternatives.send")
+    def test_requires_password_reset_flag_cleared_after_reset(self, _mock_send) -> None:
+        """
+        Verifies that RequiresPasswordResetMiddleware flag is cleared
+        when the user successfully completes a reset.
+        Uses a real token from Django's token generator.
+        """
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.encoding import force_bytes
+        from django.utils.http import urlsafe_base64_encode
+
+        profile = self.user.profile
+        profile.requires_password_reset = True
+        profile.save(update_fields=["requires_password_reset"])
+
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        token = default_token_generator.make_token(self.user)
+
+        response = self.client.post(
+            reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}),
+            {"new_password1": "NewSecurePass123!", "new_password2": "NewSecurePass123!"},
+        )
+
+        profile.refresh_from_db()
+        self.assertFalse(profile.requires_password_reset)
