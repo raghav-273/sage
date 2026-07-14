@@ -1,9 +1,10 @@
 # config/urls.py
 
-from django.contrib import admin
-from django.urls import path, include
 from django.conf import settings
-from django.conf.urls.static import static
+from django.contrib import admin
+from django.contrib.auth.decorators import login_required
+from django.urls import include, path, re_path
+from django.views.static import serve as _django_serve
 
 urlpatterns = [
     # Django admin
@@ -33,10 +34,33 @@ urlpatterns = [
 handler404 = "apps.portal.views.custom_404"
 handler500 = "apps.portal.views.custom_500"
 
+
+
+# Authenticated media file serving.
+# Replaces both:
+#   - urlpatterns += static(...) which only works in DEBUG mode and is unauthenticated
+#   - The custom FileResponse view which had its own path-traversal logic
+# This single line works in all modes (runserver, gunicorn, HTTPS) and requires login.
+# login_required wraps the function-based django.views.static.serve directly.
+urlpatterns += [
+    re_path(
+        r"^media/(?P<path>.*)$",
+        login_required(
+            _django_serve,
+            login_url="/login/",
+        ),
+        kwargs={"document_root": settings.MEDIA_ROOT},
+    ),
+]
+
 # Serve uploaded media files during development.
 # In production, delegate to nginx or a CDN. Never use this in production.
+""" 
+not using this for now, since we are using nginx to serve media files in production
+
 if settings.DEBUG:
     urlpatterns += static(
         settings.MEDIA_URL,
         document_root=settings.MEDIA_ROOT,
-    )
+)
+"""
