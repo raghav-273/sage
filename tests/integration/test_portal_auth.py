@@ -364,9 +364,12 @@ class PasswordResetFlowTests(TestCase):
     @mock.patch("django.core.mail.EmailMultiAlternatives.send")
     def test_requires_password_reset_flag_cleared_after_reset(self, _mock_send) -> None:
         """
-        Verifies that RequiresPasswordResetMiddleware flag is cleared
-        when the user successfully completes a reset.
-        Uses a real token from Django's token generator.
+        In Django 4.0+, PasswordResetConfirmView uses session-based tokens:
+        1. GET the token URL → validates token, stores in session, redirects
+           to /<uid>/set-password/
+        2. POST to the set-password URL → processes form, calls form_valid
+        Posting directly to the token URL only triggers the redirect — form_valid
+        is never called and the flag is never cleared.
         """
         from django.contrib.auth.tokens import default_token_generator
         from django.utils.encoding import force_bytes
@@ -379,10 +382,26 @@ class PasswordResetFlowTests(TestCase):
         uid = urlsafe_base64_encode(force_bytes(self.user.pk))
         token = default_token_generator.make_token(self.user)
 
+        # Step 1: GET the real token URL — Django validates, stores in session,
+        # redirects to the set-password URL.
+        token_url = reverse(
+            "password_reset_confirm",
+            kwargs={"uidb64": uid, "token": token},
+        )
+        redirect_response = self.client.get(token_url)
+        self.assertEqual(redirect_response.status_code, 302)
+
+        # Step 2: POST the new password to the redirected set-password URL.
+        # The client's session already holds the validated token from step 1.
+        set_password_url = redirect_response["Location"]
         response = self.client.post(
-            reverse("password_reset_confirm", kwargs={"uidb64": uid, "token": token}),
-            {"new_password1": "NewSecurePass123!", "new_password2": "NewSecurePass123!"},
+            set_password_url,
+            {
+                "new_password1": "NewSecurePass123!",
+                "new_password2": "NewSecurePass123!",
+            },
         )
 
+        # form_valid was called → flag cleared
         profile.refresh_from_db()
         self.assertFalse(profile.requires_password_reset)

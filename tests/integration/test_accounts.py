@@ -6,19 +6,34 @@ and the requires_permission decorator.
 
 from __future__ import annotations
 
+from unittest import mock
+
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.test import RequestFactory, TestCase
-from django.urls import reverse
 
-from apps.accounts.decorators import requires_permission
 from apps.accounts.models import AuditLog, Role, UserProfile
 from apps.accounts.permissions import Permission
 
 
+def _get_or_create_role(name: str) -> Role:
+    """
+    Gets the seeded role or creates it if the test database was created
+    before the accounts app was added (e.g. with --keepdb on an old DB).
+    """
+    role, _ = Role.objects.get_or_create(
+        name=name,
+        defaults={
+            "display_name": name.replace("_", " ").title(),
+            "is_system_role": True,
+        },
+    )
+    return role
+
+
 def _make_user_with_role(username: str, role_name: str) -> tuple[User, UserProfile]:
     user = User.objects.create_user(username=username, password="test-pass-123")
-    role = Role.objects.get(name=role_name)
+    role = _get_or_create_role(role_name)
     profile = user.profile  # created by signal
     profile.role = role
     profile.save(update_fields=["role"])
@@ -56,11 +71,9 @@ class UserProfilePermissionTests(TestCase):
 
     def test_superuser_bypasses_rbac(self) -> None:
         superuser = User.objects.create_superuser(username="su", password="test-pass-123")
-        # Profile created by signal with no role
         profile = superuser.profile
         profile.role = None
         profile.save(update_fields=["role"])
-        # Despite no role, superuser should have all permissions
         self.assertTrue(profile.has_permission(Permission.MANAGE_USERS))
         self.assertTrue(profile.has_permission(Permission.DELETE_DOCUMENTS))
 
@@ -81,6 +94,7 @@ class RequiresPermissionDecoratorTests(TestCase):
         return request
 
     def test_permitted_user_passes_through(self) -> None:
+        from apps.accounts.decorators import requires_permission
         request = self._make_request_with_user("engineer")
 
         @requires_permission(Permission.UPLOAD_DOCUMENTS)
@@ -91,6 +105,7 @@ class RequiresPermissionDecoratorTests(TestCase):
         self.assertEqual(result, "ok")
 
     def test_unpermitted_user_raises_permission_denied(self) -> None:
+        from apps.accounts.decorators import requires_permission
         request = self._make_request_with_user("read_only")
 
         @requires_permission(Permission.UPLOAD_DOCUMENTS)
@@ -102,6 +117,7 @@ class RequiresPermissionDecoratorTests(TestCase):
 
     def test_unauthenticated_user_redirected(self) -> None:
         from django.contrib.auth.models import AnonymousUser
+        from apps.accounts.decorators import requires_permission
         request = self.factory.get("/fake/")
         request.user = AnonymousUser()
 
@@ -118,24 +134,24 @@ class AuditLogWriteTests(TestCase):
         from services.audit.audit_service import log_event
         log_event(
             event_type="auth_login_success",
-            actor_id=None,
-            actor_username="testuser",
             detail={"test": True},
             ip_address="127.0.0.1",
         )
-        self.assertEqual(AuditLog.objects.filter(event_type="auth_login_success").count(), 1)
+        self.assertEqual(
+            AuditLog.objects.filter(event_type="auth_login_success").count(), 1
+        )
 
-    def test_log_event_does_not_raise_on_partial_data(self) -> None:
+    def test_log_event_does_not_raise_on_minimal_data(self) -> None:
         from services.audit.audit_service import log_event
-        # Should not raise even with minimal data
         log_event(event_type="auth_logout")
         self.assertTrue(AuditLog.objects.filter(event_type="auth_logout").exists())
 
     def test_audit_log_is_immutable_via_admin(self) -> None:
-        from django.contrib.admin.sites import site
+        from django.contrib.admin.sites import AdminSite
         from apps.accounts.admin import AuditLogAdmin
+        site = AdminSite()
         admin_instance = AuditLogAdmin(AuditLog, site)
-        mock_request = None
+        mock_request = mock.MagicMock()
         self.assertFalse(admin_instance.has_add_permission(mock_request))
         self.assertFalse(admin_instance.has_change_permission(mock_request))
         self.assertFalse(admin_instance.has_delete_permission(mock_request))
