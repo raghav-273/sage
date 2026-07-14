@@ -80,10 +80,20 @@ def generate_caption(
             ],
         )
     except errors.APIError as exc:
-        if exc.code == 429:
+        # Distinguish quota exhaustion (retryable) from all other API errors.
+        # exc.code is an integer HTTP status on APIError instances.
+        if getattr(exc, "code", None) == 429:
             raise QuotaExhaustedError(f"Quota exhausted: {exc}") from exc
-        raise CaptionError(f"Gemini API error {exc.code}: {exc}") from exc
+        raise CaptionError(f"Gemini API error {getattr(exc, 'code', 'unknown')}: {exc}") from exc
+    except (QuotaExhaustedError, CaptionError):
+        raise  # let our own typed exceptions propagate unmodified
     except Exception as exc:
+        # Covers network errors, SDK internal errors, etc.
+        # Check if the string representation indicates a quota error,
+        # since some SDK versions wrap 429s in generic exceptions.
+        exc_str = str(exc)
+        if "429" in exc_str or "RESOURCE_EXHAUSTED" in exc_str:
+            raise QuotaExhaustedError(f"Quota exhausted: {exc}") from exc
         raise CaptionError(f"Unexpected Gemini client error: {exc}") from exc
 
     if not response.text:
