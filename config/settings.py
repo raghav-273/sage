@@ -460,4 +460,8 @@ SITE_URL = env("SITE_URL", default="http://localhost:8000")
 # Password reset token lifetime (seconds). One day.
 PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT_SECONDS", default=86400)
 
+REGISTRATION_VERIFICATION_TIMEOUT_SECONDS = env.int(
+    "REGISTRATION_VERIFICATION_TIMEOUT_SECONDS", default=172800  # 48 hours
+)
+
 # --------------------------------  --------------------------------  
