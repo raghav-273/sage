@@ -1,0 +1,25 @@
+{% extends "portal/base_login.html" %}
+{% block title %}Registration Submitted{% endblock %}
+{% block content %}
+<div class="login-page">
+  <div class="login-left">
+    <div><div class="login-brand-name">SAGE</div><div class="login-brand-full">Standards &amp; Guidelines Engine</div></div>
+    <div class="login-version">SAGE v2.0 — Engineering Evidence Platform</div>
+  </div>
+  <div class="login-right">
+    <div class="login-form-container">
+      <h1 class="login-form-title">Registration Submitted</h1>
+      <p class="login-form-sub">
+        A verification link has been sent to your email address.
+        Click that link to confirm your email and advance your
+        registration to administrator review.
+      </p>
+      <p style="font-size:0.82rem;color:#64748b;margin-bottom:1.5rem;">
+        The verification link expires in 48 hours. Check your spam folder
+        if it does not arrive within a few minutes.
+      </p>
+      <a href="{% url 'login' %}" class="login-submit" style="display:block;text-align:center;text-decoration:none;">Return to sign in</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

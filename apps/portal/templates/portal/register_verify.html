@@ -1,0 +1,37 @@
+{% extends "portal/base_login.html" %}
+{% block title %}Email Verification{% endblock %}
+{% block content %}
+<div class="login-page">
+  <div class="login-left">
+    <div><div class="login-brand-name">SAGE</div><div class="login-brand-full">Standards &amp; Guidelines Engine</div></div>
+    <div class="login-version">SAGE v2.0 — Engineering Evidence Platform</div>
+  </div>
+  <div class="login-right">
+    <div class="login-form-container">
+      {% if valid %}
+      <h1 class="login-form-title">Email Verified</h1>
+      <p class="login-form-sub">
+        Thank you, <strong>{{ username }}</strong>. Your email address has been
+        confirmed. Your registration is now pending administrator review.
+      </p>
+      <p style="font-size:0.82rem;color:#64748b;margin-bottom:1.5rem;">
+        You will receive an email notification once a decision has been made.
+        This process typically takes 1-2 business days.
+      </p>
+      {% else %}
+      <h1 class="login-form-title">Link Expired or Invalid</h1>
+      <p class="login-form-sub">
+        This verification link has expired or is invalid.
+        Verification links are valid for 48 hours.
+      </p>
+      <a href="{% url 'registration-page' %}" style="font-size:0.82rem;color:#2563eb;">
+        Submit a new registration
+      </a>
+      {% endif %}
+      <div style="margin-top:2rem;">
+        <a href="{% url 'login' %}" class="login-submit" style="display:block;text-align:center;text-decoration:none;">Return to sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

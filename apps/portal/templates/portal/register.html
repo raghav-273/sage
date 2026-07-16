@@ -1,0 +1,95 @@
+{% extends "portal/base_login.html" %}
+{% block title %}Register{% endblock %}
+{% block content %}
+<div class="login-page" style="max-width:1100px;">
+  <div class="login-left">
+    <div>
+      <div class="login-brand-name">SAGE</div>
+      <div class="login-brand-full">Standards &amp; Guidelines Engine</div>
+      <p class="login-brand-desc">
+        Access to SAGE is restricted to authorised personnel.
+        All registrations are reviewed and approved by a system administrator
+        before access is granted.
+      </p>
+    </div>
+    <div class="login-version">SAGE v2.0 — Engineering Evidence Platform</div>
+  </div>
+  <div class="login-right" style="align-items:flex-start;padding-top:2.5rem;overflow-y:auto;">
+    <div class="login-form-container" style="max-width:460px;">
+      <h1 class="login-form-title">Request Access</h1>
+      <p class="login-form-sub">
+        Complete all required fields. Your registration will be reviewed
+        by a system administrator. Already registered?
+        <a href="{% url 'login' %}" style="color:#2563eb;">Sign in</a>
+      </p>
+
+      {% if errors %}
+      <div class="login-error-notice">
+        <ul style="margin:0;padding-left:1.2rem;">
+          {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <form method="post" novalidate autocomplete="off">
+        {% csrf_token %}
+
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:0.75rem;margin-top:1rem;">Account Details</div>
+
+        <div class="login-field">
+          <label class="login-label">Username <span style="color:#ef4444;">*</span></label>
+          <input type="text" name="username" class="login-input" value="{{ form_data.username.0|default:'' }}" required autocomplete="off">
+        </div>
+        <div class="login-field">
+          <label class="login-label">Email address <span style="color:#ef4444;">*</span></label>
+          <input type="email" name="email" class="login-input" value="{{ form_data.email.0|default:'' }}" required autocomplete="email">
+        </div>
+        <div class="login-field">
+          <label class="login-label">Password <span style="color:#ef4444;">*</span></label>
+          <input type="password" name="password" class="login-input" required autocomplete="new-password">
+        </div>
+        <div class="login-field">
+          <label class="login-label">Confirm password <span style="color:#ef4444;">*</span></label>
+          <input type="password" name="password_confirm" class="login-input" required autocomplete="new-password">
+        </div>
+
+        <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:0.75rem;margin-top:1.5rem;">Organisational Details</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <div class="login-field">
+            <label class="login-label">First name</label>
+            <input type="text" name="first_name" class="login-input" value="{{ form_data.first_name.0|default:'' }}">
+          </div>
+          <div class="login-field">
+            <label class="login-label">Last name</label>
+            <input type="text" name="last_name" class="login-input" value="{{ form_data.last_name.0|default:'' }}">
+          </div>
+        </div>
+        <div class="login-field">
+          <label class="login-label">Department</label>
+          <input type="text" name="department" class="login-input" value="{{ form_data.department.0|default:'' }}">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <div class="login-field">
+            <label class="login-label">Designation</label>
+            <input type="text" name="designation" class="login-input" value="{{ form_data.designation.0|default:'' }}">
+          </div>
+          <div class="login-field">
+            <label class="login-label">Employee ID</label>
+            <input type="text" name="employee_id" class="login-input" value="{{ form_data.employee_id.0|default:'' }}">
+          </div>
+        </div>
+        <div class="login-field">
+          <label class="login-label">Reason for access <span style="color:#ef4444;">*</span></label>
+          <textarea name="reason_for_access" class="login-input" rows="3" required style="resize:vertical;">{{ form_data.reason_for_access.0|default:'' }}</textarea>
+          <div style="font-size:0.7rem;color:#94a3b8;margin-top:0.3rem;">
+            Briefly describe your role and why you require access to SAGE.
+          </div>
+        </div>
+
+        <button type="submit" class="login-submit" style="margin-top:1rem;">Submit Registration</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
