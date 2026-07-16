@@ -20,6 +20,7 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+
 from .permissions import ROLE_DEFAULT_PERMISSIONS, Permission
 
 
@@ -143,6 +144,109 @@ class UserProfile(models.Model):
             return True
         return permission in self.get_permissions()
 
+
+class AccountRegistration(models.Model):
+    """
+    Pre-approval registration record.
+
+    A User row is NOT created until an administrator approves the registration.
+    This prevents partially-created users from interacting with the permission
+    system during the review period.
+
+    Password is stored as a Django-hashed value (make_password()) so the
+    applicant's chosen password is preserved through approval without
+    being stored in plain text. On approval, the User is created with
+    this hash already set.
+
+    Email verification uses django.core.signing.TimestampSigner with the
+    registration UUID as the signed value — no token table required.
+    The token is valid for REGISTRATION_VERIFICATION_TIMEOUT_SECONDS
+    (default 48 hours).
+    """
+
+    class Status(models.TextChoices):
+        PENDING_VERIFICATION = "pending_verification", "Pending Email Verification"
+        PENDING_APPROVAL = "pending_approval", "Pending Approval"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # Applicant details
+    email = models.EmailField(db_index=True)
+    username = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=150, blank=True, default="")
+    last_name = models.CharField(max_length=150, blank=True, default="")
+    department = models.CharField(max_length=255, blank=True, default="")
+    designation = models.CharField(max_length=255, blank=True, default="")
+    employee_id = models.CharField(max_length=100, blank=True, default="")
+    reason_for_access = models.TextField(
+        help_text="Why the applicant requires access to SAGE."
+    )
+    password_hash = models.CharField(
+        max_length=128,
+        help_text="Django password hash. Set on registration; applied to the User on approval.",
+    )
+
+    status = models.CharField(
+        max_length=25,
+        choices=Status.choices,
+        default=Status.PENDING_VERIFICATION,
+        db_index=True,
+    )
+
+    # Email verification
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    # Administrator review
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_registrations",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default="")
+
+    # Linked User (set on approval)
+    approved_user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="registration",
+    )
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["status", "submitted_at"], name="accreg_status_ts_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.username} <{self.email}> [{self.status}]"
+
+    def make_verification_token(self) -> str:
+        """Returns a signed, expiring token for email verification."""
+        from django.core.signing import TimestampSigner
+        signer = TimestampSigner(salt="apps.accounts.registration.verify")
+        return signer.sign(str(self.id))
+
+    @classmethod
+    def verify_token(cls, token: str, max_age_seconds: int = 172800) -> "AccountRegistration | None":
+        """
+        Validates a verification token and returns the registration, or None
+        if the token is invalid or expired.
+        """
+        from django.core.signing import BadSignature, SignatureExpired, TimestampSigner
+        signer = TimestampSigner(salt="apps.accounts.registration.verify")
+        try:
+            registration_id = signer.unsign(token, max_age=max_age_seconds)
+            return cls.objects.get(id=registration_id, status=cls.Status.PENDING_VERIFICATION)
+        except (BadSignature, SignatureExpired, cls.DoesNotExist):
+            return None
 
 class AuditLog(models.Model):
     """
