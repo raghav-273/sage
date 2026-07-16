@@ -1,0 +1,16 @@
+SAGE — Registration Decision
+
+Hello {{ username }},
+
+After review, your registration for SAGE has not been approved
+at this time.
+
+Reason provided by the administrator:
+{{ reason }}
+
+If you believe this is an error or have additional information
+to provide, contact your system administrator directly.
+
+---
+SAGE — Standards and Guidelines Engine
+{{ site_url }}

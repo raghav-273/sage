@@ -1,0 +1,14 @@
+SAGE — Registration Approved
+
+Hello {{ username }},
+
+Your registration for SAGE has been approved. You can now sign in
+at the link below:
+
+{{ login_url }}
+
+If you have any questions, contact your system administrator.
+
+---
+SAGE — Standards and Guidelines Engine
+{{ site_url }}

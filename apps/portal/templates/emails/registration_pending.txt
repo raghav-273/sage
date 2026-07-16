@@ -1,0 +1,13 @@
+SAGE — Registration Received
+
+Hello {{ username }},
+
+Your email address has been verified. Your registration is now under
+review by a system administrator.
+
+You will receive a notification once a decision has been made.
+This process typically takes 1-2 business days.
+
+---
+SAGE — Standards and Guidelines Engine
+{{ site_url }}

@@ -1,0 +1,13 @@
+SAGE — New Registration Pending Approval
+
+A new user registration is awaiting your review.
+
+Applicant: {{ applicant_username }}
+
+Review and approve or reject this registration at:
+
+{{ review_url }}
+
+---
+SAGE — Standards and Guidelines Engine
+{{ site_url }}
