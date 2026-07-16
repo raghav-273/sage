@@ -1,0 +1,81 @@
+{% extends "portal/base.html" %}
+{% block title %}Review Registration — {{ registration.username }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <h1 class="h4 mb-0">Review Registration</h1>
+  <a href="{% url 'admin-registrations' %}" class="btn btn-sm btn-outline-secondary">Back</a>
+</div>
+
+{% if error %}
+<div class="alert alert-warning mb-3">{{ error }}</div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-12 col-lg-7">
+    <div class="sage-card p-4 mb-3">
+      <h2 class="h6 text-uppercase text-muted mb-3 letter-spacing">Applicant Details</h2>
+      <dl class="row mb-0">
+        <dt class="col-sm-4">Username</dt><dd class="col-sm-8 font-monospace">{{ registration.username }}</dd>
+        <dt class="col-sm-4">Email</dt><dd class="col-sm-8">{{ registration.email }}</dd>
+        <dt class="col-sm-4">Full name</dt><dd class="col-sm-8">{{ registration.first_name }} {{ registration.last_name }}</dd>
+        <dt class="col-sm-4">Department</dt><dd class="col-sm-8">{{ registration.department|default:"—" }}</dd>
+        <dt class="col-sm-4">Designation</dt><dd class="col-sm-8">{{ registration.designation|default:"—" }}</dd>
+        <dt class="col-sm-4">Employee ID</dt><dd class="col-sm-8 font-monospace">{{ registration.employee_id|default:"—" }}</dd>
+        <dt class="col-sm-4">Submitted</dt><dd class="col-sm-8">{{ registration.submitted_at|date:"Y-m-d H:i" }}</dd>
+        <dt class="col-sm-4">Email verified</dt><dd class="col-sm-8">{% if registration.verified_at %}{{ registration.verified_at|date:"Y-m-d H:i" }}{% else %}Not verified{% endif %}</dd>
+        <dt class="col-sm-4">Status</dt><dd class="col-sm-8">{{ registration.get_status_display }}</dd>
+      </dl>
+    </div>
+
+    <div class="sage-card p-4 mb-3">
+      <h2 class="h6 text-uppercase text-muted mb-2 letter-spacing">Reason for Access</h2>
+      <p class="mb-0">{{ registration.reason_for_access }}</p>
+    </div>
+
+    {% if registration.status == 'rejected' and registration.rejection_reason %}
+    <div class="sage-card p-4">
+      <h2 class="h6 text-uppercase text-muted mb-2 letter-spacing">Rejection Reason</h2>
+      <p class="mb-0 text-danger">{{ registration.rejection_reason }}</p>
+      {% if registration.reviewed_by %}<p class="small text-muted mt-1 mb-0">Reviewed by {{ registration.reviewed_by.username }} on {{ registration.reviewed_at|date:"Y-m-d H:i" }}</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if registration.status == 'pending_approval' %}
+  <div class="col-12 col-lg-5">
+    <div class="sage-card p-4 mb-3">
+      <h2 class="h6 text-uppercase text-muted mb-3 letter-spacing">Approve</h2>
+      <p class="small text-muted mb-3">
+        Approving will create a user account with the Engineer role.
+        The applicant will receive an email notification.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="approve">
+        <button type="submit" class="btn btn-success w-100"
+                onclick="return confirm('Approve this registration and create an account for {{ registration.username }}?')">
+          Approve Registration
+        </button>
+      </form>
+    </div>
+
+    <div class="sage-card p-4">
+      <h2 class="h6 text-uppercase text-muted mb-3 letter-spacing">Reject</h2>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="reject">
+        <div class="mb-3">
+          <label class="form-label login-label">Rejection reason <span style="color:#ef4444;">*</span></label>
+          <textarea name="rejection_reason" class="form-control form-control-sm" rows="3" required
+                    placeholder="Provide a clear reason. This will be sent to the applicant."></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger w-100"
+                onclick="return confirm('Reject this registration? This will notify the applicant.')">
+          Reject Registration
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

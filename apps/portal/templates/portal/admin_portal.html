@@ -1,0 +1,38 @@
+{% extends "portal/base.html" %}
+{% load account_tags %}
+{% block title %}Administration{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <h1 class="h4 mb-0">Administration</h1>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value {% if pending_count > 0 %}text-warning{% endif %}">{{ pending_count }}</div>
+      <div class="stat-label">Pending Registrations</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value">{{ total_users }}</div>
+      <div class="stat-label">Active Users</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% has_perm request.user "approve_registrations" as can_approve %}
+  {% if can_approve %}
+  <div class="col-12 col-md-4">
+    <a href="{% url 'admin-registrations' %}" class="action-tile action-tile-{% if pending_count > 0 %}primary{% else %}secondary{% endif %}">
+      <div class="action-tile-icon">REG</div>
+      <div class="action-tile-label">Registrations</div>
+      <div class="action-tile-sub">
+        {% if pending_count > 0 %}{{ pending_count }} pending review{% else %}No pending registrations{% endif %}
+      </div>
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
