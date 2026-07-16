@@ -1,0 +1,17 @@
+SAGE — Verify Your Email Address
+
+Hello {{ username }},
+
+Thank you for registering for SAGE. Please verify your email address
+by visiting the link below within 48 hours:
+
+{{ verification_url }}
+
+Once verified, your registration will be reviewed by a system administrator.
+You will receive a notification when a decision has been made.
+
+If you did not register for SAGE, no action is required.
+
+---
+SAGE — Standards and Guidelines Engine
+{{ site_url }}

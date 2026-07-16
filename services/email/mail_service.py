@@ -135,3 +135,67 @@ def send_admin_password_reset_email(
         },
         raise_on_failure=False,
     )
+    
+
+def send_registration_verification_email(
+    recipient: str, username: str, verification_url: str
+) -> bool:
+    """Sent immediately after registration — user must verify email."""
+    return send_email(
+        subject="SAGE — Verify Your Email Address",
+        recipient=recipient,
+        text_template="emails/registration_verify.txt",
+        html_template="emails/registration_verify.html",
+        context={"username": username, "verification_url": verification_url},
+    )
+
+
+def send_registration_pending_email(recipient: str, username: str) -> bool:
+    """Sent after email verification — informs user that admin review is pending."""
+    return send_email(
+        subject="SAGE — Registration Received",
+        recipient=recipient,
+        text_template="emails/registration_pending.txt",
+        context={"username": username},
+    )
+
+
+def send_registration_approved_email(
+    recipient: str, username: str, login_url: str
+) -> bool:
+    """Sent when an administrator approves the registration."""
+    return send_email(
+        subject="SAGE — Registration Approved",
+        recipient=recipient,
+        text_template="emails/registration_approved.txt",
+        html_template="emails/registration_approved.html",
+        context={"username": username, "login_url": login_url},
+        raise_on_failure=True,
+    )
+
+
+def send_registration_rejected_email(
+    recipient: str, username: str, reason: str
+) -> bool:
+    """Sent when an administrator rejects the registration."""
+    return send_email(
+        subject="SAGE — Registration Decision",
+        recipient=recipient,
+        text_template="emails/registration_rejected.txt",
+        context={"username": username, "reason": reason},
+    )
+
+
+def send_admin_new_registration_notification(
+    admin_email: str, applicant_username: str, review_url: str
+) -> bool:
+    """Sent to administrators when a new registration is pending review."""
+    return send_email(
+        subject="SAGE — New Registration Pending Approval",
+        recipient=admin_email,
+        text_template="emails/admin_new_registration.txt",
+        context={
+            "applicant_username": applicant_username,
+            "review_url": review_url,
+        },
+    )
