@@ -1,4 +1,4 @@
-{% load static %}
+{% load static account_tags %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,12 +17,31 @@
                     SAGE <small>Standards &amp; Guidelines Engine</small>
                 </span>
                 {% if user.is_authenticated %}
+                {% has_perm user "view_documents" as can_view %}
+                {% has_perm user "conduct_research" as can_research %}
+                {% has_perm user "manage_users" as can_manage_users %}
+                {% has_perm user "approve_registrations" as can_approve %}
+                {% pending_registration_count as pending_regs %}
                 <div class="d-flex align-items-center gap-3">
-                    <a href="{% url 'dashboard' %}" class="nav-link">Dashboard</a>
-                    <a href="{% url 'document-upload-page' %}" class="nav-link">Upload</a>
-                    <a href="{% url 'query-page' %}" class="nav-link">Ask a Question</a>
+                    <a href="{% url 'dashboard' %}" class="nav-link">Library</a>
+                    {% if can_research %}
+                    <a href="{% url 'query-page' %}" class="nav-link">Research</a>
                     <a href="{% url 'comparison-page' %}" class="nav-link">Compare</a>
-                    <span class="nav-link text-muted small" style="cursor:default;">{{ user.username }}</span>
+                    {% endif %}
+                    {% if can_manage_users or can_approve %}
+                    <a href="{% url 'admin-portal' %}" class="nav-link">
+                        Administration
+                        {% if pending_regs > 0 %}
+                        <span class="badge bg-warning text-dark"
+                              style="font-size:0.6rem;vertical-align:middle;margin-left:2px;">
+                            {{ pending_regs }}
+                        </span>
+                        {% endif %}
+                    </a>
+                    {% endif %}
+                    <span class="nav-link text-muted small" style="cursor:default;">
+                        {{ user.username }}
+                    </span>
                     <form method="post" action="{% url 'logout' %}" class="d-flex mb-0">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-light">Sign out</button>
@@ -35,22 +54,21 @@
     <main class="container-fluid py-4">
         {% block content %}{% endblock %}
     </main>
-    <script src="{% static 'portal/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
-    <script src="{% static 'portal/vendor/htmx/htmx.min.js' %}"></script>
-    {# Citation side panel — persistent container; HTMX swaps inner content #}
+
+    {# Citation side panel — persistent container #}
     <div id="citation-panel" class="citation-panel" role="complementary" aria-label="Citation inspector">
       <div class="citation-panel-header">
         <span class="small fw-semibold text-uppercase" style="letter-spacing:0.06em; color:#6c757d;">
           Source Inspector
         </span>
-        <button class="btn-close btn-close-sm"
-                onclick="closeCitationPanel()"
-                aria-label="Close"></button>
+        <button class="btn-close btn-close-sm" onclick="closeCitationPanel()" aria-label="Close"></button>
       </div>
       <div id="citation-panel-body"></div>
     </div>
     <div id="citation-overlay" class="citation-overlay" onclick="closeCitationPanel()"></div>
 
+    <script src="{% static 'portal/vendor/bootstrap/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'portal/vendor/htmx/htmx.min.js' %}"></script>
     <script>
       function openCitationPanel() {
         document.getElementById('citation-panel').classList.add('is-open');
@@ -61,12 +79,12 @@
         document.getElementById('citation-overlay').classList.remove('is-visible');
         document.getElementById('citation-panel-body').innerHTML = '';
       }
-      // Open panel after HTMX loads content into the panel body.
       document.addEventListener('htmx:afterSwap', function(evt) {
         if (evt.detail.target.id === 'citation-panel-body') {
           openCitationPanel();
         }
       });
     </script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>
