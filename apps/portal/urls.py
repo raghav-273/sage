@@ -2,6 +2,7 @@
 from django.contrib.auth.views import LogoutView
 from django.urls import path, re_path
 from apps.portal.views import serve_media_file
+from . import views_registration, views_admin
 
 from .views_password_reset import (SagePasswordResetCompleteView,SagePasswordResetConfirmView,SagePasswordResetDoneView,SagePasswordResetView,)
 
@@ -36,6 +37,16 @@ urlpatterns = [
     path("password-reset/sent/", SagePasswordResetDoneView.as_view(), name="password_reset_done"),
     path("password-reset/<uidb64>/<token>/",SagePasswordResetConfirmView.as_view(),name="password_reset_confirm",),
     path("password-reset/complete/", SagePasswordResetCompleteView.as_view(), name="password_reset_complete"),
+    
+    # Registration workflow (public — no login required)
+    path("register/", views_registration.registration_page, name="registration-page"),
+    path("register/done/", views_registration.registration_done, name="registration-done"),
+    path("register/verify/<str:token>/", views_registration.registration_verify, name="registration-verify"),
+
+    # Administration portal (requires MANAGE_USERS / APPROVE_REGISTRATIONS)
+    path("administration/", views_admin.admin_portal, name="admin-portal"),
+    path("administration/registrations/", views_admin.admin_registrations, name="admin-registrations"),
+    path("administration/registrations/<str:registration_id>/", views_admin.admin_registration_detail, name="admin-registration-detail"),
 ]
 
 urlpatterns += [
