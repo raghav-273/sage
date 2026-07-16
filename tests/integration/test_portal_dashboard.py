@@ -16,7 +16,7 @@ from apps.portal.health import HealthStatus
 
 class DashboardContentTests(TestCase):
     def setUp(self) -> None:
-        self.user = User.objects.create_user(username="reviewer", password="test-pass-123")
+        self.user = User.objects.create_user(username="reviewer", password="test-pass-123") 
         self.client.login(username="reviewer", password="test-pass-123")
 
     def test_dashboard_lists_documents(self) -> None:
