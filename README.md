@@ -1267,7 +1267,7 @@ B.Tech. Computer Science Engineering
 Built during Summer Internship 2026 at the Research Designs and Standards Organisation (RDSO), Ministry of Railways, Government of India — Lucknow.
 
 [![Email](https://img.shields.io/badge/Email-raghavmishra.dev@gmail.com-EA4335?style=flat-square&logo=gmail&logoColor=white)](mailto:raghavmishra.dev@gmail.com)
-[![GitHub](https://img.shields.io/badge/GitHub-your--username-181717?style=flat-square&logo=github)](https://github.com/raghav-273)
+[![GitHub](https://img.shields.io/badge/GitHub-raghav--273-181717?style=flat-square&logo=github)](https://github.com/raghav-273)
 
 ---
 
@@ -1292,6 +1292,6 @@ Built during Summer Internship 2026 at the Research Designs and Standards Organi
 
 *If this project helps your work with technical documentation, consider starring the repository.*
 
-[![Star on GitHub](https://img.shields.io/github/stars/your-username/sage?style=social)](https://github.com/raghav-273/sage)
+[![Star on GitHub](https://img.shields.io/github/stars/raghav-273/sage?style=social)](https://github.com/raghav-273/sage)
 
 </div>
