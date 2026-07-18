@@ -1,14 +1,14 @@
 <div align="center">
 <br />
 
-```
+<pre>
 ███████╗ █████╗  ██████╗ ███████╗
 ██╔════╝██╔══██╗██╔════╝ ██╔════╝
 ███████╗███████║██║  ███╗█████╗  
 ╚════██║██╔══██║██║   ██║██╔══╝  
 ███████║██║  ██║╚██████╔╝███████╗
 ╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝
-```
+</pre>
 
 # Standards and Guidelines Engine
 
@@ -23,7 +23,8 @@
 [![Redis](https://img.shields.io/badge/Redis-7-DC382D?style=flat-square&logo=redis&logoColor=white)](https://redis.io)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)](https://docker.com)
 [![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev)
-[![Tests](https://img.shields.io/badge/Tests-272_passing-22C55E?style=flat-square&logo=pytest&logoColor=white)](./tests)
+[![Hybrid RAG](https://img.shields.io/badge/Search-Hybrid_RAG-8B5CF6?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/Tests-272%2F272_Passing-22C55E?style=flat-square&logo=pytest&logoColor=white)](./tests)
 [![License](https://img.shields.io/badge/License-MIT-6366F1?style=flat-square)](./LICENSE)
 [![RDSO](https://img.shields.io/badge/Built_at-RDSO_Lucknow-FF6B35?style=flat-square)](https://rdso.indianrailways.gov.in)
 
