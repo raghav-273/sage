@@ -256,10 +256,10 @@ flowchart LR
     QUEUE --> CELERY[Celery Task<br/>Dispatched]
 
     subgraph Pipeline["Ingestion Pipeline · Celery Worker"]
-        CELERY --> EX[EXTRACTING<br/>PyMuPDF Pixmap]
-        EX --> CH[CHUNKING<br/>tiktoken 512/50]
-        CH --> EM[EMBEDDING<br/>BAAI/bge-small-en]
-        EM --> RD[READY<br/>Fully queryable]
+        CELERY --> EX["EXTRACTING<br/>PyMuPDF Pixmap"]
+        EX --> CH["CHUNKING<br/>tiktoken 512/50"]
+        CH --> EM["EMBEDDING<br/>BAAI/bge-small-en"]
+        EM --> RD["READY<br/>Fully queryable"]
     end
 
     RD --> CAP_TASK[Caption Task<br/>Dispatched async]
@@ -269,10 +269,10 @@ flowchart LR
         CAP_GEN --> CAP_CHUNK[CAPTION ContentChunk<br/>embedded + indexed]
     end
 
-    EX -. creates .-> PAGES[DocumentPage<br/>rows]
-    EX -. creates .-> ASSETS[DiagramAsset<br/>JPEG files]
-    CH -. creates .-> CHUNKS[ContentChunk<br/>rows]
-    EM -. updates .-> VECTORS[VECTOR(384)<br/>column]
+    EX -. creates .-> PAGES["DocumentPage<br/>rows"]
+    EX -. creates .-> ASSETS["DiagramAsset<br/>JPEG files"]
+    CH -. creates .-> CHUNKS["ContentChunk<br/>rows"]
+    EM -. updates .-> VECTORS["VECTOR(384)<br/>column"]
 
     style RD fill:#22c55e,color:#fff
     style CAP_CHUNK fill:#3b82f6,color:#fff
