@@ -147,39 +147,44 @@ General-purpose AI tools make this worse, not better. They answer every question
 <div align="center">
 
 ### Library Dashboard
+<img src="media/images/img_1.png" width="75%">
 <!-- Dashboard Screenshot -->
+
 *Document library with stat cards, health indicators, and per-document clause/figure/investigation counts*
 
+---
 ### Query Interface — Verified Answer
+<img src="media/images/img_2.png" width="75%">
 <!-- Query Interface — Green State -->
+
 *Hybrid retrieval result with green Verified badge, numbered citations, and clickable source inspector*
 
+---
 ### Citation Side Panel
+<img src="media/images/img_3.png" width="75%">
 <!-- Citation Side Panel -->
+
 *In-place source inspector showing cited passage, adjacent context, and figure thumbnail for vision citations*
 
-### Investigation Workspace
-<!-- Research Workspace Screenshot -->
-*Named investigation session with numbered findings, confidence badges, and Export PDF action*
+---
+### Each Figure Captioned
+<img src="media/images/img_4.png" width="75%">
 
+<!-- Research Workspace Screenshot -->
+*Detailed Description of each Figure which will help in semantic search and technical descriptions*
+
+---
 ### Figure Explorer
+<img src="media/images/img_5.png" width="75%">
 <!-- Figure Explorer Screenshot -->
+
 *Caption-searchable figure gallery with AI-generated technical descriptions and Ask About This entry point*
 
-### Clause Navigator
-<!-- Clause Navigator Screenshot -->
-*Hierarchical document outline with citation frequency badges and investigation history per clause*
-
-### Compliance Verification
-<!-- Compliance Query Screenshot -->
-*COMPLIANT / NON-COMPLIANT / INSUFFICIENT EVIDENCE verdict with supporting clause citations*
-
-### Admin Portal — Registration Review
-<!-- Admin Portal Screenshot -->
-*Administrator approval interface showing applicant details, department, and reason for access*
-
+---
 ### Login Page
+<img src="media/images/img_7.png" width="75%">
 <!-- Login Page Screenshot -->
+
 *Two-panel enterprise login with Cloudflare Turnstile, security status indicators, and monochrome design*
 
 </div>
